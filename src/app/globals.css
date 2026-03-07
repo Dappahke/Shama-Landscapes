@@ -1,0 +1,110 @@
+/* 1️⃣ Google Fonts import — must come first */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700;900&display=swap');
+
+/* 2️⃣ Then Tailwind core */
+@import "tailwindcss";
+
+/* 3️⃣ Your theme colors */
+@theme {
+  --color-shama-clay: #F5EBE8;
+  --color-shama-blue: #3596D5;
+  --color-shama-terra: #BD7563;
+  --color-shama-green: #0F7F40;
+  --color-shama-black: #000000;
+}
+
+/* 4️⃣ Global styles */
+body {
+  font-family: 'Montserrat', sans-serif;
+  background-color: var(--color-shama-clay);
+  color: var(--color-shama-black);
+}
+
+/* Fade-in animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 1s ease forwards;
+}
+
+/* Scrolling animation */
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll-left {
+  display: flex;
+  animation: scroll-left 25s linear infinite;
+}
+
+/* Grid background */
+.bg-grid-slate-900 {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(15 23 42 / 0.04)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+}
+
+/* Fade-up animation */
+.fade-up {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUp 0.8s ease forwards;
+}
+
+.delay-200 {
+  animation-delay: 0.2s;
+}
+
+.delay-500 {
+  animation-delay: 0.5s;
+}
+
+.delay-700 {
+  animation-delay: 0.7s;
+}
+
+@keyframes fadeUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Typing effect */
+.typing {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 3px solid white;
+  width: 0;
+  animation:
+    typing 2s steps(20) forwards,
+    blink 0.7s step-end infinite alternate;
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 18ch;
+  }
+}
+
+@keyframes blink {
+  50% {
+    border-color: transparent;
+  }
+}

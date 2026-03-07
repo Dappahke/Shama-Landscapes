@@ -1,0 +1,39 @@
+{
+  "name": "shama-website",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@portabletext/react": "^6.0.3",
+    "@sanity/client": "^7.14.1",
+    "@sanity/icons": "^3.7.4",
+    "@sanity/image-url": "^1.2.0",
+    "@sanity/vision": "^4.22.0",
+    "@supabase/supabase-js": "^2.80.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.546.0",
+    "next": "15.5.4",
+    "next-sanity": "^11.6.12",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-is": "^19.2.4",
+    "sanity": "^4.22.0",
+    "styled-components": "^6.3.11"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.4",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.14",
+    "typescript": "5.9.3"
+  }
+}
