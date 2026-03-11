@@ -9,12 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.2.0",
     "@portabletext/react": "^6.0.3",
     "@sanity/client": "^7.14.1",
     "@sanity/icons": "^3.7.4",
     "@sanity/image-url": "^1.2.0",
     "@sanity/vision": "^4.22.0",
-    "@supabase/supabase-js": "^2.80.0",
+    "@supabase/supabase-js": "^2.99.0",
     "@tailwindcss/typography": "^0.5.19",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.546.0",

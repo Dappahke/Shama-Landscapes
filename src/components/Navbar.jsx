@@ -6,116 +6,91 @@ import Link from "next/link";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [inHero, setInHero] = useState(true);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
 
   const navItems = [
-    { href: "/about", label: "About Us", color: "blue" },
-    { href: "/services", label: "Services", color: "green" },
-    { href: "/projects", label: "Our Projects", color: "green" },
-    { href: "/company-profile", label: "Company Profile", color: "blue" },
-    { href: "/sustainability", label: "Sustainability", color: "green" },
-    { href: "/blog", label: "Blog", color: "blue" },
-    { href: "/contact", label: "Contact", color: "green" },
+    { href: "/about", label: "About" },
+    { href: "/services", label: "Services" },
+    { href: "/projects", label: "Projects" },
+    { href: "/sustainability", label: "Sustainability" },
+    { href: "/blog", label: "Blog" },
+    { href: "/contact", label: "Contact" },
   ];
 
   useEffect(() => {
-    if (pathname !== "/") return;
-    const hero = document.querySelector("#hero");
-    if (!hero) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setInHero(entry.isIntersecting),
-      { threshold: 0.1 }
-    );
-
-    observer.observe(hero);
-    return () => observer.disconnect();
-  }, [pathname]);
-
-  useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
+      setScrolled(window.scrollY > 40);
     };
+
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "auto";
-  }, [open]);
 
   const isActive = (href) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
 
-  const getActiveColorClass = (color) =>
-    color === "green" ? "text-shama-green" : "text-shama-blue";
-
-  const getHoverColorClass = (color) =>
-    color === "green" ? "hover:text-shama-green" : "hover:text-shama-blue";
-
-  const isHome = pathname === "/";
-
   return (
-    <header
-      className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] w-[90%] max-w-7xl transition-all duration-500 rounded-3xl ${
-        isHome && inHero && !scrolled
-          ? "bg-white/30 backdrop-blur-none shadow-none"
-          : "bg-white/30 backdrop-blur-lg shadow-2xl"
-      }`}
-    >
-      <nav className="flex items-center justify-between px-6 py-3">
+    <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-7xl">
+
+      <nav
+        className={`flex items-center justify-between px-6 lg:px-8 py-3 transition-all duration-500
+        rounded-4xl border border-white/20
+        ${
+          scrolled
+            ? "bg-white/70 backdrop-blur-md shadow-lg"
+            : "bg-white/80 backdrop-blur-sm"
+        }`}
+      >
+
         {/* LOGO */}
-        <Link href="/" aria-label="Home" className="transition-opacity hover:opacity-80">
+        <Link href="/" className="flex items-center">
           <img
-            src="/assets/logo.png"
-            alt="Shama Landscape Architects Logo"
-            className="w-auto h-10 lg:h-12"
+            src="/assets/shama_landscape_logo.png"
+            alt="Shama Landscape Architects"
+            className="w-auto h-10"
           />
         </Link>
 
         {/* DESKTOP NAV */}
-        <div className="items-center hidden space-x-4 lg:flex">
+        <div className="items-center hidden gap-8 lg:flex">
+
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`relative px-3 py-2 text-sm font-medium transition-all duration-300 ${
-                isHome && inHero && !scrolled
-                  ? "text-white/90 hover:text-white"
-                  : isActive(item.href)
-                  ? getActiveColorClass(item.color) + " font-semibold"
-                  : "text-shama-black/80 " + getHoverColorClass(item.color)
+              className={`relative text-sm tracking-wide transition-colors duration-300 ${
+                isActive(item.href)
+                  ? "text-shama-green"
+                  : "text-shama-black/80 hover:text-shama-green"
               }`}
             >
               {item.label}
-              {isActive(item.href) && (
-                <span
-                  className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full ${
-                    item.color === "green" ? "bg-shama-green" : "bg-shama-blue"
-                  }`}
-                />
-              )}
+
+              <span
+                className={`absolute left-0 -bottom-1 h-[2px] bg-shama-green transition-all duration-300 ${
+                  isActive(item.href) ? "w-full" : "w-0"
+                }`}
+              />
             </Link>
           ))}
 
           {/* CTA */}
           <Link
             href="/contact"
-            className="ml-4 px-5 py-2.5 text-sm font-semibold text-white rounded-full bg-shama-green hover:bg-shama-terra transition-all duration-300 shadow-lg"
+            className="px-5 py-2 ml-4 text-sm font-semibold text-white transition-all duration-300 rounded-full shadow-md bg-shama-green hover:bg-shama-terra"
           >
-            Book an Appointment
+            Start a Project
           </Link>
+
         </div>
 
         {/* MOBILE BUTTON */}
         <button
           onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
-          className="p-2 transition rounded-lg lg:hidden text-shama-black/80 hover:bg-shama-green/10"
+          className="lg:hidden text-shama-black"
         >
           <svg
             className="w-6 h-6"
@@ -144,43 +119,37 @@ export default function Navbar() {
 
       {/* MOBILE MENU */}
       <div
-        className={`lg:hidden fixed inset-x-0 top-24 bg-white/80 backdrop-blur-lg shadow-2xl transition-all duration-500 z-[200] ${
-          open ? "visible opacity-100 translate-y-0" : "invisible opacity-0 -translate-y-4"
-        }`}
+        className={`lg:hidden fixed inset-x-0 top-24 mx-auto w-[92%] max-w-7xl rounded-2xl border border-white/20
+        bg-white/80 backdrop-blur-md shadow-xl transition-all duration-400
+        ${open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"}`}
       >
-        <div className="flex flex-col p-6 space-y-2">
+        <div className="flex flex-col p-6 space-y-4">
+
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               onClick={() => setOpen(false)}
-              className={`px-4 py-3 rounded-lg text-base font-medium ${
+              className={`text-base transition ${
                 isActive(item.href)
-                  ? getActiveColorClass(item.color) + " bg-white/20 font-semibold"
-                  : "text-shama-black/80 hover:bg-white/10 " + getHoverColorClass(item.color)
+                  ? "text-shama-green font-semibold"
+                  : "text-shama-black/80 hover:text-shama-green"
               }`}
             >
               {item.label}
             </Link>
           ))}
 
-          {/* Mobile CTA */}
           <Link
             href="/contact"
             onClick={() => setOpen(false)}
-            className="px-4 py-3 mt-4 font-semibold text-center text-white rounded-lg bg-shama-green hover:bg-shama-terra"
+            className="px-6 py-3 mt-4 text-center text-white rounded-full bg-shama-green"
           >
-            Book an Appointment
+            Start a Project
           </Link>
+
         </div>
       </div>
-
-      {open && (
-        <div
-          className="fixed inset-0 z-[150] bg-black/20 lg:hidden"
-          onClick={() => setOpen(false)}
-        />
-      )}
     </header>
   );
 }

@@ -163,7 +163,7 @@ export default function HomePage() {
             {[
               {
                 quote: "“Shama elevated our outdoor spaces from functional to exceptional. Their design intelligence and professionalism set a new benchmark for our apartment environment.”",
-                author: "Ben Lukoko",
+                author: "Ben Muli,",
                 role: "Property Developer"
               },
               {
@@ -232,7 +232,7 @@ export default function HomePage() {
                       alt={`Partner ${index + 1}`}
                       width={120} 
                       height={60}
-                      className="object-contain"
+                      className="object-contain w-auto h-12"
                     />
                   </div>
                 ))}

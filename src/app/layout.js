@@ -1,34 +1,58 @@
-import { Geist, Geist_Mono, Montserrat } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import NewsletterModal from "@/components/NewsletterModal";
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
-// ✅ Load Montserrat properly
+// ============================================
+// FONT CONFIGURATION
+// ============================================
+
 const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-montserrat",
+  display: "swap", // Prevents FOIT (Flash of Invisible Text)
+  preload: true,
 });
 
-// ✅ Existing fonts
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// ============================================
+// METADATA CONFIGURATION
+// ============================================
 
-export const metadata = {
-  // ✅ metadataBase is required for OpenGraph images to work on production
-  metadataBase: new URL("https://shamalandscapes.co.ke"),
-  title: "Shama Landscape Architects | Imagine it. Build it. Have it.",
+const siteConfig = {
+  name: "Shama Landscape Architects",
+  url: "https://shamalandscapes.co.ke",
+  logo: "/assets/shama_landscape_logo.png",
   description:
     "Shama Landscape Architects blends design, sustainability, and innovation to create timeless outdoor spaces. Based in Kakamega, Kenya — we bring landscapes to life through creative vision and ecological harmony.",
+  contact: {
+    phone: "+254735184292",
+    email: "info@shamalandscapes.co.ke",
+  },
+  address: {
+    street: "Ambwere Plaza, 1st Floor",
+    city: "Kakamega",
+    region: "Western",
+    postalCode: "50100",
+    country: "KE",
+  },
+  social: {
+    instagram: "https://www.instagram.com/shama.landscape.architects",
+    linkedin: "https://www.linkedin.com/company/shama-landscape-architects",
+  },
+};
+
+export const metadata = {
+  metadataBase: new URL(siteConfig.url),
+  title: {
+    default: `${siteConfig.name} | Imagine it. Build it. Have it.`,
+    template: `%s | ${siteConfig.name}`,
+  },
+  description: siteConfig.description,
   keywords: [
     "landscape architecture",
     "Shama Landscape Architects",
@@ -37,22 +61,36 @@ export const metadata = {
     "urban design",
     "sustainable landscapes",
     "green architecture",
+    "East Africa landscape",
+    "environmental planning",
+    "garden design Kenya",
   ],
-  authors: [{ name: "Shama Landscape Architects", url: "https://shamalandscapes.co.ke" }],
-  creator: "Shama Landscape Architects",
-  publisher: "Shama Landscape Architects",
+  authors: [{ name: siteConfig.name, url: siteConfig.url }],
+  creator: siteConfig.name,
+  publisher: siteConfig.name,
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
-    title: "Shama Landscape Architects | Imagine it. Build it. Have it.",
-    description:
-      "Transforming outdoor spaces into sustainable works of art across Kenya and East Africa.",
-    url: "https://shamalandscapes.co.ke",
-    siteName: "Shama Landscape Architects",
+    title: `${siteConfig.name} | Imagine it. Build it. Have it.`,
+    description: siteConfig.description,
+    url: siteConfig.url,
+    siteName: siteConfig.name,
     images: [
       {
-        url: "/assets/logo.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Shama Landscape Architects Logo",
+        alt: "Shama Landscape Architects",
       },
     ],
     locale: "en_KE",
@@ -60,115 +98,164 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Shama Landscape Architects",
+    title: siteConfig.name,
     description:
       "Creating sustainable outdoor spaces that connect people, nature, and design.",
-    images: ["/assets/logo.png"],
+    images: [siteConfig.logo],
   },
   alternates: {
-    canonical: "https://shamalandscapes.co.ke",
+    canonical: siteConfig.url,
+    languages: {
+      "en-KE": siteConfig.url,
+    },
+  },
+  verification: {
+    // Add Google Search Console code here if using HTML tag method
+    // google: "your-verification-code",
+  },
+  other: {
+    "msapplication-TileColor": "#2A9D8F", // shama-green for Windows tiles
+    "theme-color": "#0F7F40",
   },
 };
 
+// ============================================
+// STRUCTURED DATA (JSON-LD)
+// ============================================
+
+function generateStructuredData() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ArchitecturalFirm",
+    "@id": `${siteConfig.url}/#organization`,
+    name: siteConfig.name,
+    alternateName: "Shama Landscape Architects Ltd",
+    url: siteConfig.url,
+    logo: `${siteConfig.url}${siteConfig.logo}`,
+    image: `${siteConfig.url}${siteConfig.logo}`,
+    description: siteConfig.description,
+    telephone: siteConfig.contact.phone,
+    email: siteConfig.contact.email,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: siteConfig.address.street,
+      addressLocality: siteConfig.address.city,
+      addressRegion: siteConfig.address.region,
+      postalCode: siteConfig.address.postalCode,
+      addressCountry: siteConfig.address.country,
+    },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: 0.2827,
+      longitude: 34.7523,
+    },
+    sameAs: Object.values(siteConfig.social),
+    areaServed: {
+      "@type": "Country",
+      name: "Kenya",
+      alternateName: "East Africa",
+    },
+    openingHours: ["Mo-Fr 08:00-17:00"],
+    founder: {
+      "@type": "Person",
+      name: "John Mulievi",
+      jobTitle: "Principal Landscape Architect",
+    },
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      name: "Landscape Architecture Services",
+      itemListElement: [
+        {
+          "@type": "Offer",
+          itemOffered: {
+            "@type": "Service",
+            name: "Landscape Design and Planning",
+            description: "Comprehensive landscape architecture and master planning services",
+          },
+        },
+        {
+          "@type": "Offer",
+          itemOffered: {
+            "@type": "Service",
+            name: "Sustainable Site Development",
+            description: "Eco-friendly site development and environmental planning",
+          },
+        },
+        {
+          "@type": "Offer",
+          itemOffered: {
+            "@type": "Service",
+            name: "Irrigation and Garden Design",
+            description: "Custom irrigation systems and garden landscape design",
+          },
+        },
+      ],
+    },
+    priceRange: "$$",
+    currenciesAccepted: "KES, USD",
+    paymentAccepted: "Cash, Credit Card, Bank Transfer",
+  };
+}
+
+// ============================================
+// VIEWPORT CONFIGURATION
+// ============================================
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#0F7F40",
+};
+
+// ============================================
+// ROOT LAYOUT
+// ============================================
+
 export default function RootLayout({ children }) {
+  const structuredData = generateStructuredData();
+
   return (
-    <html 
-      lang="en" 
-      className={`${montserrat.variable} ${geistSans.variable} ${geistMono.variable}`}
+    <html
+      lang="en"
+      dir="ltr"
+      className={`${montserrat.variable}`}
     >
       <head>
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-        />
-        <link rel="icon" href="/assets/logo.png" type="image/png" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-        {/* JSON-LD Schema */}
+        {/* Favicons */}
+        <link rel="icon" href={siteConfig.logo} type="image/png" />
+        <link rel="apple-touch-icon" href={siteConfig.logo} />
+
+        {/* Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "ArchitecturalFirm",
-              name: "Shama Landscape Architects",
-              alternateName: "Shama Landscape Architects Ltd",
-              url: "https://shamalandscapes.co.ke",
-              logo: "https://shamalandscapes.co.ke/assets/logo.png",
-              image: "https://shamalandscapes.co.ke/assets/logo.png",
-              description:
-                "Shama Landscape Architects is a Kenya-based firm specializing in sustainable landscape architecture, planning, and design innovation.",
-              telephone: "+254735184292",
-              email: "info@shamalandscapes.co.ke",
-              address: {
-                "@type": "PostalAddress",
-                streetAddress: "Ambwere Plaza, 1st Floor",
-                addressLocality: "Kakamega",
-                addressRegion: "Western",
-                postalCode: "50100",
-                addressCountry: "KE",
-              },
-              geo: {
-                "@type": "GeoCoordinates",
-                latitude: 0.2827,
-                longitude: 34.7523,
-              },
-              sameAs: [
-                "https://www.instagram.com/shama.landscape.architects",
-                "https://www.linkedin.com/company/shama-landscape-architects",
-              ],
-              areaServed: {
-                "@type": "Place",
-                name: "Kenya and East Africa",
-              },
-              openingHours: "Mo-Fr 08:00-17:00",
-              founder: {
-                "@type": "Person",
-                name: "John Mulievi",
-                jobTitle: "Principal Landscape Architect",
-              },
-              makesOffer: [
-                {
-                  "@type": "Offer",
-                  itemOffered: {
-                    "@type": "Service",
-                    name: "Landscape Design and Planning",
-                  },
-                },
-                {
-                  "@type": "Offer",
-                  itemOffered: {
-                    "@type": "Service",
-                    name: "Sustainable Site Development",
-                  },
-                },
-                {
-                  "@type": "Offer",
-                  itemOffered: {
-                    "@type": "Service",
-                    name: "Irrigation and Garden Design",
-                  },
-                },
-              ],
-            }),
+            __html: JSON.stringify(structuredData),
           }}
         />
       </head>
 
-      <body
-        className="antialiased font-montserrat bg-shama-clay text-shama-black"
-      >
+      <body className="flex flex-col min-h-screen antialiased font-montserrat bg-shama-clay text-shama-black">
+        {/* Skip to content link for accessibility */}
+        <a
+          href="#main-content"
+          className="transition-all sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-shama-green focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-shama-green"
+        >
+          Skip to main content
+        </a>
+
         <Navbar />
-        
-        <main className="pt-16">
+
+        <main id="main-content" className="flex-1 pt-16">
           {children}
         </main>
 
-        {/* ✅ Newsletter Modal pops up globally */}
-        <NewsletterModal />
-
-        <WhatsAppButton />
         <Footer />
+
+        {/* Global components */}
+        <NewsletterModal />
+        <WhatsAppButton />
       </body>
     </html>
   );

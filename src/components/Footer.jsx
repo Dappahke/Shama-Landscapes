@@ -11,7 +11,7 @@ export default function Footer() {
         <div className="lg:col-span-1">
           <div className="mb-6">
             <Image
-              src="/assets/logo.png"
+              src="/assets/shama_landscape_logo.png"
               alt="Shama Landscape Architects Logo"
               width={150}
               height={60}

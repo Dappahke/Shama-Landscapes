@@ -97,7 +97,7 @@ function generateStructuredData(posts) {
           name: "Shama Landscape Architects",
           logo: {
             "@type": "ImageObject",
-            url: `${SITE_URL}/assets/logo.png`,
+            url: `${SITE_URL}/assets/shama_landscape_logo.png`,
           },
         },
         blogPost: posts.map((post) => ({

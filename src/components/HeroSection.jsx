@@ -18,7 +18,7 @@ export default function HeroSection() {
   return (
     <section
       id="hero"
-      className="relative flex items-end justify-start w-full h-screen pb-24 pl-8 overflow-hidden text-left md:pl-16"
+      className="relative flex items-end justify-start w-full h-screen pb-20 pl-6 overflow-hidden md:pl-16"
     >
       {/* Background Video */}
       <video
@@ -33,48 +33,48 @@ export default function HeroSection() {
         <source src="/videos/hero-bg.webm" type="video/webm" />
       </video>
 
-      {/* Overlay */}
-      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+      {/* Overlay (lighter so video shows clearly) */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/60 via-black/25 to-transparent" />
 
       {/* Content */}
       <div
-        className={`relative z-20 max-w-2xl text-white transition-all duration-700 ${
-          isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+        className={`relative z-20 max-w-lg text-white transition-all duration-700 ${
+          isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
         }`}
       >
-
-        {/* Firm label */}
-        <p className="mb-4 text-sm tracking-widest uppercase text-white/70">
-          Landscape Architecture Studio
+        {/* Label */}
+        <p className="mb-3 text-xs tracking-[0.25em] uppercase text-white/70">
+          Landscape Architecture & Environmental Planning
         </p>
 
-        {/* Main Headline */}
-        <h1 className="mb-6 text-3xl font-semibold leading-tight md:text-4xl lg:text-5xl">
-          Designing Landscapes <br />
-          <span className="text-shama-green">That Integrate Nature</span>  
-          <br />with the Built Environment
+        {/* Divider */}
+        <div className="w-12 h-px mb-4 bg-shama-green"></div>
+
+        {/* Headline */}
+        <h1 className="mb-4 text-2xl font-medium leading-snug md:text-3xl lg:text-4xl">
+          Designing Landscapes for the{" "}
+          <span className="text-shama-green">Built Environment</span>
         </h1>
 
         {/* Subheadline */}
-        <p className="max-w-xl mb-6 text-base leading-relaxed text-white/80 md:text-lg">
-          Shama Landscape Architects is a Nairobi-based studio delivering
-          landscape architecture, environmental planning, and master planning
-          services — shaping sustainable outdoor environments from concept
-          to implementation.
+        <p className="max-w-md mb-6 text-sm leading-relaxed text-white/80 md:text-base">
+          A Nairobi-based landscape architecture practice delivering
+          sustainable design, environmental planning, and master planning
+          for residential, commercial, and hospitality developments across Kenya.
         </p>
 
         {/* CTA */}
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <a
             href="/projects"
-            className="px-5 py-2.5 text-sm font-semibold text-white transition-all rounded-full bg-shama-green hover:bg-shama-terra"
+            className="px-4 py-2 text-xs font-semibold tracking-wide text-white transition-all rounded-full bg-shama-green hover:bg-shama-terra"
           >
-            View Projects
+            Explore Projects
           </a>
 
           <a
             href="/contact"
-            className="px-5 py-2.5 text-sm font-semibold text-white transition-all border rounded-full border-white/40 hover:bg-white/10"
+            className="px-4 py-2 text-xs font-semibold tracking-wide text-white transition-all border rounded-full border-white/40 hover:bg-white/10"
           >
             Start a Project
           </a>

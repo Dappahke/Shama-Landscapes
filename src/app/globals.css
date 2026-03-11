@@ -1,10 +1,10 @@
-/* 1️⃣ Google Fonts import — must come first */
+/* 1️⃣ Google Fonts — must come first */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700;900&display=swap');
 
-/* 2️⃣ Then Tailwind core */
+/* 2️⃣ Tailwind v4 import */
 @import "tailwindcss";
 
-/* 3️⃣ Your theme colors */
+/* 3️⃣ Theme colors */
 @theme {
   --color-shama-clay: #F5EBE8;
   --color-shama-blue: #3596D5;
@@ -13,12 +13,24 @@
   --color-shama-black: #000000;
 }
 
-/* 4️⃣ Global styles */
+/* 4️⃣ Global reset (prevents white strip above hero) */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* 5️⃣ Global styles */
 body {
   font-family: 'Montserrat', sans-serif;
   background-color: var(--color-shama-clay);
   color: var(--color-shama-black);
+  overflow-x: hidden;
 }
+
+/* ===============================
+   ANIMATIONS
+================================ */
 
 /* Fade-in animation */
 @keyframes fade-in {
@@ -36,27 +48,18 @@ body {
   animation: fade-in 1s ease forwards;
 }
 
-/* Scrolling animation */
-@keyframes scroll-left {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.animate-scroll-left {
-  display: flex;
-  animation: scroll-left 25s linear infinite;
-}
-
-/* Grid background */
-.bg-grid-slate-900 {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(15 23 42 / 0.04)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
-}
-
 /* Fade-up animation */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .fade-up {
   opacity: 0;
   transform: translateY(20px);
@@ -75,14 +78,36 @@ body {
   animation-delay: 0.7s;
 }
 
-@keyframes fadeUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
+/* ===============================
+   SCROLLING LOGO ANIMATION
+================================ */
+
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
   }
 }
 
-/* Typing effect */
+.animate-scroll-left {
+  display: flex;
+  animation: scroll-left 25s linear infinite;
+}
+
+/* ===============================
+   GRID BACKGROUND
+================================ */
+
+.bg-grid-slate-900 {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(15 23 42 / 0.04)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+}
+
+/* ===============================
+   TYPING EFFECT
+================================ */
+
 .typing {
   display: inline-block;
   overflow: hidden;
@@ -99,7 +124,7 @@ body {
     width: 0;
   }
   to {
-    width: 18ch;
+    width: 100%;
   }
 }
 
@@ -107,4 +132,16 @@ body {
   50% {
     border-color: transparent;
   }
+}
+@keyframes scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 30s linear infinite;
 }
