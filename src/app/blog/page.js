@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { client } from "@/sanity/lib/client";
-import NewsletterModal from "@/components/NewsletterModal";
 
 const SITE_URL = "https://shamalandscapes.co.ke";
 
@@ -165,7 +164,7 @@ export default async function BlogPage() {
       </nav>
 
       {/* Hero Section - Split Layout */}
-      <header className="relative overflow-hidden text-white bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-900">
+      <header className="relative overflow-hidden text-white bg-linear-to-br from-emerald-900 via-emerald-800 to-teal-900">
         {/* Abstract pattern overlay */}
         <div className="absolute inset-0 opacity-10">
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -204,7 +203,7 @@ export default async function BlogPage() {
             
             <article className="overflow-hidden transition-shadow duration-500 bg-white shadow-xl rounded-3xl hover:shadow-2xl">
               <Link href={`/blog/${featuredPost.slug?.current}`} className="grid gap-0 lg:grid-cols-2">
-                <div className="relative aspect-[4/3] lg:aspect-auto overflow-hidden">
+                <div className="relative overflow-hidden aspect-4/3 lg:aspect-auto">
                   {featuredPost.mainImage ? (
                     <Image
                       src={featuredPost.mainImage.asset.url}
@@ -295,7 +294,7 @@ export default async function BlogPage() {
               {recentPosts.map((post, index) => (
                 <article key={post.slug?.current} className="group">
                   <Link href={`/blog/${post.slug?.current}`} className="block">
-                    <div className="relative aspect-[16/10] rounded-2xl overflow-hidden mb-4 bg-stone-200">
+                    <div className="relative mb-4 overflow-hidden aspect-16/10 rounded-2xl bg-stone-200">
                       {post.mainImage ? (
                         <Image
                           src={post.mainImage.asset.url}
@@ -352,7 +351,7 @@ export default async function BlogPage() {
               {olderPosts.map((post) => (
                 <article key={post.slug?.current} className="pb-6 border-b group border-stone-100 last:border-0 last:pb-0">
                   <Link href={`/blog/${post.slug?.current}`} className="flex items-start gap-6">
-                    <div className="relative flex-shrink-0 hidden w-24 h-24 overflow-hidden rounded-xl bg-stone-100 sm:block">
+                    <div className="relative hidden w-24 h-24 overflow-hidden shrink-0 rounded-xl bg-stone-100 sm:block">
                       {post.mainImage ? (
                         <Image
                           src={post.mainImage.asset.url}
@@ -383,7 +382,7 @@ export default async function BlogPage() {
                       </h3>
                     </div>
                     
-                    <svg className="flex-shrink-0 w-5 h-5 mt-1 transition-colors text-stone-300 group-hover:text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 mt-1 transition-colors shrink-0 text-stone-300 group-hover:text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </Link>
@@ -425,7 +424,6 @@ export default async function BlogPage() {
         </div>
       </section>
 
-      <NewsletterModal category="blog_main" postTitle="Blog Listing Page" />
     </div>
   );
 }

@@ -3,7 +3,6 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import NewsletterModal from "@/components/NewsletterModal";
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
 // ============================================
@@ -256,9 +255,6 @@ export default function RootLayout({ children }) {
         </main>
 
         <Footer />
-
-        {/* Global components */}
-        <NewsletterModal />
         <WhatsAppButton />
       </body>
     </html>

@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from "react";
 import HeroSection from "@/components/HeroSection";
 import FeaturedProjects from "@/components/FeaturedProjects";
-import NewsletterModal from "@/components/NewsletterModal";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -413,8 +412,6 @@ export default function HomePage() {
           </p>
         </div>
       </section>
-
-      <NewsletterModal />
     </div>
   );
 }

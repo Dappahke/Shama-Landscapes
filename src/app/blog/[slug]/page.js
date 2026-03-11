@@ -1,7 +1,6 @@
 import { client } from "@/sanity/lib/client";
 import { PortableText } from "@portabletext/react";
 import Image from "next/image";
-import NewsletterModal from "@/components/NewsletterModal";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import imageUrlBuilder from '@sanity/image-url';
@@ -190,13 +189,13 @@ export default async function BlogPost({ params }) {
             <li>/</li>
             <li><Link href="/blog" className="hover:text-emerald-700">Journal</Link></li>
             <li>/</li>
-            <li className="font-medium text-emerald-700 truncate max-w-[200px]">{post.title}</li>
+            <li className="font-medium truncate text-emerald-700 max-w-50">{post.title}</li>
           </ol>
         </div>
       </nav>
 
       {/* Header */}
-      <header className="relative overflow-hidden text-white bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-900">
+      <header className="relative overflow-hidden text-white bg-linear-to-br from-emerald-900 via-emerald-800 to-teal-900">
         <div className="relative max-w-4xl px-4 py-16 mx-auto sm:px-6 lg:px-8 lg:py-24">
           <div className="max-w-3xl">
             <Link href="/blog" className="inline-flex items-center mb-8 text-sm font-medium text-emerald-100/90 hover:text-white">
@@ -232,7 +231,7 @@ export default async function BlogPost({ params }) {
       {/* Featured Image */}
       {post.mainImage && (
         <div className="max-w-6xl px-4 mx-auto -mt-12 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden shadow-2xl aspect-[21/9] rounded-3xl ring-8 ring-white">
+          <div className="relative overflow-hidden shadow-2xl aspect-21/9 rounded-3xl ring-8 ring-white">
             <Image
               src={post.mainImage.asset.url}
               alt={post.title}
@@ -276,7 +275,7 @@ export default async function BlogPost({ params }) {
               {post.relatedPosts.map((relatedPost) => (
                 <article key={relatedPost.slug} className="group">
                   <Link href={`/blog/${relatedPost.slug}`}>
-                    <div className="relative aspect-[16/10] rounded-2xl overflow-hidden mb-4 bg-stone-200">
+                    <div className="relative mb-4 overflow-hidden aspect-16/10 rounded-2xl bg-stone-200">
                       {relatedPost.mainImage && (
                         <Image
                           src={relatedPost.mainImage.asset.url}
@@ -296,8 +295,6 @@ export default async function BlogPost({ params }) {
           </div>
         </section>
       )}
-
-      <NewsletterModal category={post.category || "blog"} postTitle={post.title} />
     </article>
   );
 }
