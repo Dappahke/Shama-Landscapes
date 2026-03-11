@@ -110,8 +110,7 @@ export const metadata = {
     },
   },
   verification: {
-    // Add Google Search Console code here if using HTML tag method
-    // google: "your-verification-code",
+    google: "u3weNNY3yFxZORt281uC67bXtFElnBjujlAmKeg-lBA",
   },
   other: {
     "msapplication-TileColor": "#2A9D8F", // shama-green for Windows tiles
@@ -155,11 +154,16 @@ function generateStructuredData() {
       name: "Kenya",
       alternateName: "East Africa",
     },
-    openingHours: ["Mo-Fr 08:00-17:00"],
+    openingHours: ["Mo-Fr 08:00-17:00", "Sat 09:00-13:00"],
     founder: {
       "@type": "Person",
       name: "John Mulievi",
       jobTitle: "Principal Landscape Architect",
+    },
+    architect: {
+      "@type": "Person",
+      name: "Noel Syambi",
+      jobTitle: "Architect",
     },
     hasOfferCatalog: {
       "@type": "OfferCatalog",
@@ -247,7 +251,7 @@ export default function RootLayout({ children }) {
 
         <Navbar />
 
-        <main id="main-content" className="flex-1 pt-16">
+        <main id="main-content" >
           {children}
         </main>
 
