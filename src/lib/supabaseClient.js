@@ -1,10 +1,20 @@
-import { createClient } from '@supabase/supabase-js'
+// src/lib/supabaseClient.js
+import { createClient } from '@supabase/supabase-js';
 
-// We assign the values from your environment variables to the names the client expects
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Fetch environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// This creates the connection
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Guard against missing variables
+if (!supabaseUrl || !supabaseKey) {
+  // This prevents build-time errors and gives a clear message
+  throw new Error(
+    "Supabase environment variables are missing. " +
+    "Make sure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are defined in your .env.local file."
+  );
+}
 
-export default supabase
+// Create Supabase client
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+export default supabase;
