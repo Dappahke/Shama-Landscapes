@@ -1,4 +1,5 @@
 {
+  
   "compilerOptions": {
     "forceConsistentCasingInFileNames": true, // Add this here
     "baseUrl": ".",
