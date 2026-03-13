@@ -333,24 +333,6 @@ export default function Footer() {
             </div>
           </motion.div>
         </div>
-
-        {/* Studio Statistics */}
-        <motion.div 
-          variants={fadeIn}
-          className="grid grid-cols-2 gap-8 pt-16 mt-16 border-t border-shama-black/10 md:grid-cols-4"
-        >
-          {[
-            { number: "50+", label: "Projects Completed" },
-            { number: "15+", label: "Years Practice" },
-            { number: "12+", label: "Design Awards" },
-            { number: "100%", label: "Client Retention" }
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <div className="text-2xl font-bold text-shama-green md:text-3xl">{stat.number}</div>
-              <div className="mt-1 text-xs text-shama-black/50">{stat.label}</div>
-            </div>
-          ))}
-        </motion.div>
       </motion.div>
 
       {/* Bottom Bar - Refined */}

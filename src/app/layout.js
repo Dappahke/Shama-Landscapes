@@ -2,7 +2,7 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import WhatsAppButton from "@/components/WhatsAppButton";
+import LiveChat from "@/components/LiveChat"; // ← ADD THIS IMPORT
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
 // ============================================
@@ -13,10 +13,9 @@ const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-montserrat",
-  display: "swap", // Prevents FOIT (Flash of Invisible Text)
+  display: "swap",
   preload: true,
 });
-
 
 // ============================================
 // METADATA CONFIGURATION
@@ -112,7 +111,7 @@ export const metadata = {
     google: "u3weNNY3yFxZORt281uC67bXtFElnBjujlAmKeg-lBA",
   },
   other: {
-    "msapplication-TileColor": "#2A9D8F", // shama-green for Windows tiles
+    "msapplication-TileColor": "#2A9D8F",
     "theme-color": "#0F7F40",
   },
 };
@@ -200,20 +199,12 @@ function generateStructuredData() {
   };
 }
 
-// ============================================
-// VIEWPORT CONFIGURATION
-// ============================================
-
 export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
   themeColor: "#0F7F40",
 };
-
-// ============================================
-// ROOT LAYOUT
-// ============================================
 
 export default function RootLayout({ children }) {
   const structuredData = generateStructuredData();
@@ -225,12 +216,9 @@ export default function RootLayout({ children }) {
       className={`${montserrat.variable}`}
     >
       <head>
-
-        {/* Favicons */}
         <link rel="icon" href={siteConfig.logo} type="image/png" />
         <link rel="apple-touch-icon" href={siteConfig.logo} />
 
-        {/* Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -240,7 +228,6 @@ export default function RootLayout({ children }) {
       </head>
 
       <body className="flex flex-col min-h-screen antialiased font-montserrat bg-shama-clay text-shama-black">
-        {/* Skip to content link for accessibility */}
         <a
           href="#main-content"
           className="transition-all sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-shama-green focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-shama-green"
@@ -250,12 +237,12 @@ export default function RootLayout({ children }) {
 
         <Navbar />
 
-        <main id="main-content" >
+        <main id="main-content">
           {children}
         </main>
 
         <Footer />
-        <WhatsAppButton />
+        <LiveChat /> {/* ← Now properly imported */}
       </body>
     </html>
   );
