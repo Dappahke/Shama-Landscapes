@@ -89,7 +89,7 @@ export default function FeaturedProjects() {
     {
       id: "nairobi-street-kitchen",
       title: "Nairobi Street Kitchen",
-      cover: "/assets/projects/NSK.jpg",
+      cover: "/assets/projects/NSK.png",
       tagline: "Urban Dining Destination",
       year: "2020",
       location: "Westlands, Nairobi",

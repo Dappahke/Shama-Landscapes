@@ -56,7 +56,7 @@ export default function Projects() {
     {
       id: "NSK",
       title: "Nairobi Street Kitchen",
-      cover: "/assets/projects/NSK.jpeg",
+      cover: "/assets/projects/NSK.png",
       tagline: "Contemporary Hospitality Design · 2024",
       description: "Nairobi Kitchen Street Hotel is in Westlands. The site is approximately 4 km from Nairobi's Central Business District. It is a 4-star standard hotel with personal service and the authentic flavour of the new Africa.",
       images: [
@@ -266,7 +266,7 @@ export default function Projects() {
           </motion.h1>
 
           <motion.div 
-            className="w-24 h-1 mx-auto mb-8 bg-[#BD7563]"
+            className="w-24 h-1 mx-auto mb-8 bg-shama-terra"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
@@ -319,12 +319,12 @@ export default function Projects() {
             
             <div className="grid grid-cols-2 gap-6 pt-6">
               <div className="space-y-2">
-                <div className="w-8 h-0.5 bg-[#BD7563]" />
+                <div className="w-8 h-0.5 bg-shama-terra" />
                 <h4 className="font-semibold text-shama-blue">Material Honesty</h4>
                 <p className="text-sm text-shama-black/70">Expressing materials in their true form and texture</p>
               </div>
               <div className="space-y-2">
-                <div className="w-8 h-0.5 bg-[#3596D5]" />
+                <div className="w-8 h-0.5 bg-shama-blue" />
                 <h4 className="font-semibold text-shama-blue">Spatial Harmony</h4>
                 <p className="text-sm text-shama-black/70">Creating balanced, proportional spaces</p>
               </div>
@@ -355,7 +355,7 @@ export default function Projects() {
             <h2 className="mt-2 text-4xl font-bold text-shama-blue">
               Architectural Portfolio
             </h2>
-            <div className="w-16 h-0.5 mx-auto mt-4 bg-[#BD7563]" />
+            <div className="w-16 h-0.5 mx-auto mt-4 bg-shama-terra" />
           </div>
 
           {/* Projects Grid */}
@@ -369,7 +369,7 @@ export default function Projects() {
                 transition={{ duration: 0.3 }}
               >
                 <div 
-                  className="relative overflow-hidden bg-white shadow-2xl rounded-xl aspect-[4/5]"
+                  className="relative overflow-hidden bg-white shadow-2xl rounded-xl aspect-4/5"
                   onClick={() => openModal(project)}
                 >
                   {/* Image Container */}
@@ -461,7 +461,7 @@ export default function Projects() {
               <div className="flex flex-col lg:flex-row">
                 {/* Image Gallery */}
                 <div className="relative lg:w-7/12">
-                  <div className="relative h-96 lg:h-[600px] bg-gray-100 overflow-hidden">
+                  <div className="relative overflow-hidden bg-gray-100 h-96 lg:h-150">
                     <AnimatePresence mode="wait">
                       <motion.img
                         key={active.images[imgIndex]}
@@ -508,9 +508,9 @@ export default function Projects() {
                         <button
                           key={src}
                           onClick={() => setImgIndex(idx)}
-                          className={`flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                          className={`shrink-0 w-20 h-14 rounded-lg overflow-hidden border-2 transition-all ${
                             idx === imgIndex
-                              ? "border-[#BD7563] ring-2 ring-[#BD7563]/30"
+                              ? "border-shama-terra ring-2 ring-shama-terra/30"
                               : "border-transparent opacity-60 hover:opacity-100"
                           }`}
                         >
@@ -535,28 +535,28 @@ export default function Projects() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center gap-3 p-3 bg-white rounded-lg">
-                        <MapPin size={20} className="text-[#BD7563]" />
+                        <MapPin size={20} className="text-shama-terra" />
                         <div>
                           <div className="text-xs text-shama-black/60">Location</div>
                           <div className="font-medium">{active.details.location}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 p-3 bg-white rounded-lg">
-                        <Calendar size={20} className="text-[#3596D5]" />
+                        <Calendar size={20} className="text-shama-blue" />
                         <div>
                           <div className="text-xs text-shama-black/60">Year</div>
                           <div className="font-medium">{active.details.year}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 p-3 bg-white rounded-lg">
-                        <Building size={20} className="text-[#BD7563]" />
+                        <Building size={20} className="text-shama-terra" />
                         <div>
                           <div className="text-xs text-shama-black/60">Type</div>
                           <div className="font-medium">{active.details.type}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 p-3 bg-white rounded-lg">
-                        <Users size={20} className="text-[#3596D5]" />
+                        <Users size={20} className="text-shama-blue" />
                         <div>
                           <div className="text-xs text-shama-black/60">Client</div>
                           <div className="font-medium">{active.details.client}</div>
@@ -565,7 +565,7 @@ export default function Projects() {
                     </div>
 
                     <div className="flex items-center gap-3 p-4 bg-white rounded-lg">
-                      <Ruler size={20} className="text-[#BD7563]" />
+                      <Ruler size={20} className="text-shama-terra" />
                       <div>
                         <div className="text-xs text-shama-black/60">Area</div>
                         <div className="text-lg font-medium">{active.details.area}</div>
@@ -574,7 +574,7 @@ export default function Projects() {
 
                     <a
                       href={`/projects/${active.id}`}
-                      className="block w-full py-3 text-center text-white bg-[#BD7563] hover:bg-[#3596D5] transition-colors rounded-lg font-semibold"
+                      className="block w-full py-3 font-semibold text-center text-white transition-colors rounded-lg bg-shama-terra hover:bg-shama-blue"
                     >
                       View Full Case Study
                     </a>

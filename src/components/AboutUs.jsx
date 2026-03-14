@@ -273,7 +273,7 @@ export default function AboutUs() {
           </motion.h1>
           
           <motion.div
-            className="w-24 h-1 mx-auto mb-6 rounded-full bg-gradient-to-r from-shama-green to-shama-blue"
+            className="w-24 h-1 mx-auto mb-6 rounded-full bg-linear-to-r from-shama-green to-shama-blue"
             initial={{ width: 0 }}
             animate={{ width: 96 }}
             transition={{ duration: 1, delay: 0.5 }}
@@ -488,7 +488,7 @@ export default function AboutUs() {
             <h2 className="mb-6 text-4xl font-bold text-shama-blue">
               Core Values That <span className="text-shama-green">Define Us</span>
             </h2>
-            <div className="w-16 h-0.5 mx-auto bg-gradient-to-r from-[#BD7563] to-[#3596D5] rounded-full" />
+            <div className="w-16 h-0.5 mx-auto bg-linear-to-r from-shama-terra to-shama-blue rounded-full" />
           </motion.div>
 
           <motion.div 
@@ -536,7 +536,7 @@ export default function AboutUs() {
       </div>
 
       {/* Expertise Areas Section */}
-      <div className="py-20 bg-gradient-to-b from-shama-clay/5 to-white">
+      <div className="py-20 bg-linear-to-b from-shama-clay/5 to-white">
         <div className="max-w-6xl px-6 mx-auto">
           <motion.div 
             className="mb-16 text-center"
@@ -740,7 +740,7 @@ export default function AboutUs() {
                     alt={member.name}
                     className="object-cover w-full h-64 transition-transform duration-500 group-hover:scale-110"
                   />
-                  <div className="absolute inset-0 transition-opacity duration-300 opacity-0 bg-gradient-to-t from-shama-black/40 to-transparent group-hover:opacity-100" />
+                  <div className="absolute inset-0 transition-opacity duration-300 opacity-0 bg-linear-to-t from-shama-black/40 to-transparent group-hover:opacity-100" />
                 </div>
                 <div className="p-6">
                   <h3 className="mb-2 text-xl font-bold text-shama-blue">
@@ -782,7 +782,7 @@ export default function AboutUs() {
             <h2 className="mb-6 text-4xl font-bold text-shama-blue">
               Visual <span className="text-shama-green">Portfolio</span>
             </h2>
-            <div className="w-16 h-0.5 mx-auto bg-gradient-to-r from-[#BD7563] to-[#3596D5] rounded-full" />
+            <div className="w-16 h-0.5 mx-auto bg-linear-to-r from-shama-terra to-shama-blue rounded-full" />
           </motion.div>
 
           <motion.div 
@@ -824,7 +824,7 @@ export default function AboutUs() {
             <h2 className="mb-6 text-4xl font-bold text-shama-blue">
               The Shama <span className="text-shama-green">Difference</span>
             </h2>
-            <div className="w-16 h-0.5 mx-auto mb-8 bg-gradient-to-r from-[#BD7563] to-[#3596D5] rounded-full" />
+            <div className="w-16 h-0.5 mx-auto mb-8 bg-linear-to-r from-shama-terra to-shama-blue rounded-full" />
             
             <div className="grid grid-cols-1 gap-8 mt-12 md:grid-cols-3">
               {[
@@ -862,9 +862,9 @@ export default function AboutUs() {
         transition={{ duration: 1 }}
         viewport={{ once: true }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-shama-blue via-shama-green to-shama-terra" />
+        <div className="absolute inset-0 bg-linear-to-br from-shama-blue via-shama-green to-shama-terra" />
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IndoaXRlIi8+PC9zdmc+')] [mask-image:linear-gradient(0deg,white,transparent)]" />
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IndoaXRlIi8+PC9zdmc+')] mask-[linear-gradient(0deg,white,transparent)]" />
         </div>
 
         <div className="relative max-w-4xl px-6 mx-auto text-center">
