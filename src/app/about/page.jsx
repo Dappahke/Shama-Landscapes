@@ -63,7 +63,7 @@ export const metadata = {
     },
   },
   verification: {
-    google: "u3weNNY3yFxZORt281uC67bXtFElnBjujlAmKeg-lBA", // Add your Google Search Console verification code
+    google: "u3weNNY3yFxZORt281uC67bXtFElnBjujlAmKeg-lBA",
   },
 };
 
@@ -95,8 +95,8 @@ const structuredData = {
     "@type": "GeoCircle",
     geoMidpoint: {
       "@type": "GeoCoordinates",
-      latitude: -1.2921,
-      longitude: 36.8219,
+      latitude: 0.2829,
+      longitude: 34.7520,
     },
     geoRadius: "500000",
   },

@@ -1,48 +1,53 @@
 "use client";
+import { useState, useEffect } from "react";
+import supabase from "@/lib/supabaseClient";
 
-import { useState } from "react";
-
-export default function NewsletterAdmin() {
-  const [subject, setSubject] = useState("");
+export default function NewsletterPage() {
+  const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const sendNewsletter = async () => {
-    setSending(true);
+  const handleSave = async () => {
+    if (!title || !content) return setMessage("Title and content are required");
 
-    await fetch("/api/send-newsletter", {
-      method: "POST",
-      body: JSON.stringify({ subject, content }),
-    });
+    const { error } = await supabase.from("newsletter").insert([
+      {
+        title,
+        content,
+        status: "draft",
+      },
+    ]);
 
-    setSending(false);
-    alert("Newsletter sent!");
+    if (error) setMessage(error.message);
+    else {
+      setMessage("Newsletter draft saved!");
+      setTitle("");
+      setContent("");
+    }
   };
 
   return (
-    <div className="max-w-3xl p-10 mx-auto">
-      <h1 className="mb-6 text-3xl font-bold">Send Newsletter</h1>
-
+    <div>
+      <h1 className="mb-6 text-2xl font-semibold">Newsletter Drafts</h1>
       <input
+        placeholder="Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
         className="w-full p-3 mb-4 border rounded"
-        placeholder="Subject"
-        value={subject}
-        onChange={(e) => setSubject(e.target.value)}
       />
-
       <textarea
-        className="w-full h-64 p-3 mb-4 border rounded"
-        placeholder="Write newsletter..."
+        placeholder="Content"
         value={content}
         onChange={(e) => setContent(e.target.value)}
+        className="w-full h-64 p-4 mb-4 border rounded"
       />
-
       <button
-        onClick={sendNewsletter}
-        className="px-6 py-3 text-white rounded bg-emerald-700"
+        onClick={handleSave}
+        className="px-6 py-2 text-white bg-green-600 rounded"
       >
-        {sending ? "Sending..." : "Send Newsletter"}
+        Save Draft
       </button>
+      {message && <p className="mt-4 text-green-600">{message}</p>}
     </div>
   );
 }

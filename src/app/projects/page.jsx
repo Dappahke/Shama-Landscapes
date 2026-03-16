@@ -2,22 +2,49 @@ import Navbar from "@/components/Navbar";
 import Projects from "@/components/Projects";
 
 export const metadata = {
-  title: "Our Projects | Shama Landscape Architects",
+  title: "Landscape Architecture Projects in Kenya | Shama Portfolio",
   description:
-    "Explore our landscape architecture services — from master planning and site design to irrigation systems, garden design, and ecological restoration across Kenya.",
+    "View our portfolio of award-winning landscape architecture in Kenya. Featuring The Hub Karen, Nairobi Street Kitchen, and luxury residential garden designs.",
   keywords: [
-    "landscape architecture services",
-    "garden design Kenya",
-    "irrigation planning",
-    "site design Kenya",
+    "landscape architects Nairobi",
+    "garden design portfolio Kenya",
+    "commercial landscaping projects",
+    "residential landscape designers",
+    "Shama Landscape Architects projects",
   ],
+  alternates: {
+    canonical: "https://shamalandscapes.co.ke/projects",
+  },
 };
 
 export default function ProjectsPage() {
   return (
-    <main>
-      <Navbar />
-      <Projects />
-    </main>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "The Hub Karen Landscape Design",
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Nairobi Street Kitchen Hospitality Design",
+              },
+            ],
+          }),
+        }}
+      />
+      <main>
+        <Navbar />
+        <Projects />
+      </main>
+    </>
   );
 }

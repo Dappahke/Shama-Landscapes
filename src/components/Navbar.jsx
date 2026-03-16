@@ -9,14 +9,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
 
-  const navItems = [
-    { href: "/about", label: "About" },
-    { href: "/services", label: "Services" },
-    { href: "/projects", label: "Projects" },
-    { href: "/sustainability", label: "Sustainability" },
-    { href: "/blog", label: "Blog" },
-    { href: "/contact", label: "Contact" },
-  ];
+  // --- HIDE NAVBAR ON ADMIN & LOGIN ROUTES ---
+  const isExcludedPage = pathname.startsWith("/admin") || pathname === "/login";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,6 +21,18 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // If we are on an admin or login page, don't render anything
+  if (isExcludedPage) return null;
+
+  const navItems = [
+    { href: "/about", label: "About" },
+    { href: "/services", label: "Services" },
+    { href: "/projects", label: "Projects" },
+    { href: "/sustainability", label: "Sustainability" },
+    { href: "/blog", label: "Blog" },
+    { href: "/contact", label: "Contact" },
+  ];
+
   const isActive = (href) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
@@ -34,7 +40,7 @@ export default function Navbar() {
 
   return (
     <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-7xl">
-
+      {/* ... rest of your existing JSX code ... */}
       <nav
         className={`flex items-center justify-between px-6 lg:px-8 py-3 transition-all duration-500
         rounded-4xl border border-white/20
@@ -44,7 +50,6 @@ export default function Navbar() {
             : "bg-white/80 backdrop-blur-sm"
         }`}
       >
-
         {/* LOGO */}
         <Link href="/" className="flex items-center">
           <img
@@ -56,7 +61,6 @@ export default function Navbar() {
 
         {/* DESKTOP NAV */}
         <div className="items-center hidden gap-8 lg:flex">
-
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -68,23 +72,20 @@ export default function Navbar() {
               }`}
             >
               {item.label}
-
               <span
-                className={`absolute left-0 -bottom-1 h-[2px] bg-shama-green transition-all duration-300 ${
+                className={`absolute left-0 -bottom-1 h-0.5 bg-shama-green transition-all duration-300 ${
                   isActive(item.href) ? "w-full" : "w-0"
                 }`}
               />
             </Link>
           ))}
 
-          {/* CTA */}
           <Link
             href="/contact"
             className="px-5 py-2 ml-4 text-sm font-semibold text-white transition-all duration-300 rounded-full shadow-md bg-shama-green hover:bg-shama-terra"
           >
             Start a Project
           </Link>
-
         </div>
 
         {/* MOBILE BUTTON */}
@@ -92,26 +93,11 @@ export default function Navbar() {
           onClick={() => setOpen(!open)}
           className="lg:hidden text-shama-black"
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {open ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             ) : (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
             )}
           </svg>
         </button>
@@ -124,7 +110,6 @@ export default function Navbar() {
         ${open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"}`}
       >
         <div className="flex flex-col p-6 space-y-4">
-
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -139,7 +124,6 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
-
           <Link
             href="/contact"
             onClick={() => setOpen(false)}
@@ -147,7 +131,6 @@ export default function Navbar() {
           >
             Start a Project
           </Link>
-
         </div>
       </div>
     </header>
