@@ -2,9 +2,9 @@
 
 import { useState, Suspense } from "react";
 import supabase from "@/lib/supabaseClient";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import Image from "next/image";
 
-// Separate component that uses useSearchParams
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,6 +12,7 @@ function LoginForm() {
   const [error, setError] = useState("");
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const authError = searchParams.get("error");
 
   const handleLogin = async (e) => {
@@ -32,7 +33,9 @@ function LoginForm() {
       }
 
       if (data?.session) {
-        window.location.href = "/admin";
+        // Force a refresh to sync cookies with Middleware
+        router.refresh(); 
+        router.push("/admin");
       }
     } catch (err) {
       console.error(err);
@@ -44,19 +47,25 @@ function LoginForm() {
   return (
     <form
       onSubmit={handleLogin}
-      className="flex flex-col gap-5 p-10 bg-white rounded-3xl shadow-2xl w-full max-w-md border border-gray-100"
+      className="flex flex-col w-full max-w-md gap-6 p-10 border shadow-2xl bg-white/90 backdrop-blur-md rounded-3xl border-white/20"
     >
-      <div className="text-center mb-4">
-        <h2 className="text-3xl font-black tracking-tighter text-shama-blue uppercase">
-          Shama Portal
-        </h2>
-        <p className="text-xs font-bold text-gray-400 tracking-widest uppercase mt-1">
+      <div className="flex flex-col items-center mb-4">
+        <div className="relative w-32 h-16 mb-4">
+          <Image 
+            src="/shama_landscape_logo.png" 
+            alt="Shama Landscape Architects" 
+            fill 
+            className="object-contain"
+            priority
+          />
+        </div>
+        <p className="text-[10px] font-black text-stone-400 tracking-[0.3em] uppercase">
           Authorized Access Only
         </p>
       </div>
 
       {(error || authError) && (
-        <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-center">
+        <div className="p-3 text-center border border-red-100 bg-red-50 rounded-xl">
           <p className="text-[10px] font-bold text-red-600 uppercase tracking-tight">
             {error || (authError === "unauthorized" ? "Access Denied: Admin Only" : "Session Expired")}
           </p>
@@ -70,7 +79,7 @@ function LoginForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-shama-blue transition-all"
+          className="w-full p-4 transition-all border outline-none bg-white/50 border-stone-200 rounded-xl focus:border-emerald-800 text-stone-800"
         />
         <input
           type="password"
@@ -78,49 +87,54 @@ function LoginForm() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-shama-blue transition-all"
+          className="w-full p-4 transition-all border outline-none bg-white/50 border-stone-200 rounded-xl focus:border-emerald-800 text-stone-800"
         />
       </div>
 
       <button
         disabled={loading}
         type="submit"
-        className="w-full py-4 bg-shama-blue text-white font-bold rounded-xl hover:bg-shama-blue/90 transition-all active:scale-[0.98] shadow-lg shadow-shama-blue/20 disabled:opacity-50"
+        className="w-full py-4 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-950 transition-all active:scale-[0.98] shadow-lg disabled:opacity-50 uppercase tracking-widest text-xs"
       >
-        {loading ? "VERIFYING..." : "ENTER DASHBOARD"}
+        {loading ? "Verifying..." : "Enter Dashboard"}
       </button>
     </form>
   );
 }
 
-// Loading fallback
 function LoginFormSkeleton() {
   return (
-    <div className="flex flex-col gap-5 p-10 bg-white rounded-3xl shadow-2xl w-full max-w-md border border-gray-100">
-      <div className="text-center mb-4">
-        <h2 className="text-3xl font-black tracking-tighter text-shama-blue uppercase">
-          Shama Portal
-        </h2>
-        <p className="text-xs font-bold text-gray-400 tracking-widest uppercase mt-1">
-          Authorized Access Only
-        </p>
-      </div>
+    <div className="flex flex-col w-full max-w-md gap-5 p-10 bg-white/90 rounded-3xl animate-pulse">
+      <div className="h-20 mb-4 bg-stone-200 rounded-xl"></div>
       <div className="space-y-4">
-        <div className="w-full p-4 bg-gray-100 border border-gray-200 rounded-xl h-14 animate-pulse"></div>
-        <div className="w-full p-4 bg-gray-100 border border-gray-200 rounded-xl h-14 animate-pulse"></div>
+        <div className="h-14 bg-stone-100 rounded-xl"></div>
+        <div className="h-14 bg-stone-100 rounded-xl"></div>
       </div>
-      <div className="w-full py-4 bg-gray-300 rounded-xl h-14 animate-pulse"></div>
+      <div className="mt-4 h-14 bg-stone-200 rounded-xl"></div>
     </div>
   );
 }
 
-// Main page component with Suspense
 export default function AdminLoginPage() {
   return (
-    <div className="flex items-center justify-center min-h-screen px-4 bg-shama-clay font-montserrat">
-      <Suspense fallback={<LoginFormSkeleton />}>
-        <LoginForm />
-      </Suspense>
+    <div className="relative flex items-center justify-center min-h-screen px-4 overflow-hidden">
+      {/* Background Image */}
+      <Image 
+        src="/src/media/hero-poster.png" // Double check this path exists in your public folder
+        alt="Background"
+        fill
+        className="z-0 object-cover"
+        priority
+      />
+      
+      {/* Overlay for readability */}
+      <div className="absolute inset-0 z-10 bg-stone-900/40"></div>
+
+      <div className="relative z-20 flex justify-center w-full">
+        <Suspense fallback={<LoginFormSkeleton />}>
+          <LoginForm />
+        </Suspense>
+      </div>
     </div>
   );
 }

@@ -24,6 +24,7 @@ export default function AdminLayout({ children }) {
     { name: "Projects", href: "/admin/projects", icon: Briefcase },
     { name: "Chat", href: "/admin/chat", icon: MessageSquare },
     { name: "Newsletter", href: "/admin/newsletter", icon: Mail },
+    { name: "Subscribers", href: "/admin/subscribers", icon: Mail },
   ];
 
   const isActive = (href) => pathname === href;
@@ -34,9 +35,9 @@ export default function AdminLayout({ children }) {
       {/* DESKTOP SIDEBAR - Fixed, always visible on md+ */}
       <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 lg:w-72 flex-col bg-[#264653] text-white shadow-2xl">
         {/* Logo Section */}
-        <div className="p-6 lg:p-8 border-b border-white/10">
+        <div className="p-6 border-b lg:p-8 border-white/10">
           <Link href="/admin" className="block">
-            <h1 className="text-2xl font-black tracking-tighter uppercase italic">
+            <h1 className="text-2xl italic font-black tracking-tighter uppercase">
               Shama<span className="text-[#E9C46A]">.</span>Admin
             </h1>
             <p className="text-[10px] font-bold text-white/40 tracking-[0.2em] mt-1 uppercase">
@@ -77,10 +78,10 @@ export default function AdminLayout({ children }) {
         </nav>
 
         {/* Bottom Actions */}
-        <div className="p-4 border-t border-white/10 space-y-3">
+        <div className="p-4 space-y-3 border-t border-white/10">
           <Link 
             href="/" 
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-lg text-white/60 hover:text-white hover:bg-white/5"
           >
             <ArrowLeft size={16} />
             Back to Website
@@ -93,7 +94,7 @@ export default function AdminLayout({ children }) {
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-[#264653] text-white shadow-lg">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/admin" className="flex items-center gap-2">
-            <h1 className="text-xl font-black italic tracking-tight">
+            <h1 className="text-xl italic font-black tracking-tight">
               Shama<span className="text-[#E9C46A]">.</span>A
             </h1>
           </Link>
@@ -101,7 +102,7 @@ export default function AdminLayout({ children }) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+              className="p-2 transition-colors rounded-lg bg-white/10 hover:bg-white/20"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             >
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -137,10 +138,10 @@ export default function AdminLayout({ children }) {
               );
             })}
             
-            <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+            <div className="pt-4 mt-4 space-y-3 border-t border-white/10">
               <Link 
                 href="/" 
-                className="flex items-center gap-2 px-4 py-2 text-sm text-white/60 hover:text-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm transition-colors text-white/60 hover:text-white"
               >
                 <ArrowLeft size={16} />
                 Back to Website
@@ -153,14 +154,14 @@ export default function AdminLayout({ children }) {
 
       {/* MAIN CONTENT - With proper offset for sidebar and mobile header */}
       <main className="flex-1 min-h-screen md:ml-64 lg:ml-72 pt-15 md:pt-0">
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 xl:p-10">
+        <div className="p-4 mx-auto max-w-7xl sm:p-6 lg:p-8 xl:p-10">
           {children}
         </div>
       </main>
 
       {/* MOBILE BOTTOM NAV - Quick access for frequent actions */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
-        <div className="flex justify-around items-center px-2 py-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg md:hidden">
+        <div className="flex items-center justify-around px-2 py-2">
           {links.map((link) => {
             const active = isActive(link.href);
             const Icon = link.icon;
@@ -189,7 +190,7 @@ export default function AdminLayout({ children }) {
       </nav>
 
       {/* Mobile content padding for bottom nav */}
-      <div className="md:hidden h-20" />
+      <div className="h-20 md:hidden" />
     </div>
   );
 }

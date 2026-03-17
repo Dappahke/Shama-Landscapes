@@ -285,52 +285,6 @@ export default function Footer() {
                 ))}
               </div>
             </div>
-
-            {/* Newsletter - Refined */}
-            <div className="p-5 shadow-xl bg-linear-to-br from-shama-blue to-shama-blue/90 rounded-2xl">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 rounded-full bg-white/10">
-                  <Send className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">The Shama Journal</h4>
-                  <p className="text-xs text-white/70">Biannual landscape insights</p>
-                </div>
-              </div>
-              
-              {subscribed ? (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 p-3 text-sm rounded-lg bg-white/10"
-                >
-                  <CheckCircle2 className="w-5 h-5 text-shama-green" />
-                  <span className="text-white">Thank you for subscribing</span>
-                </motion.div>
-              ) : (
-                <form onSubmit={handleNewsletterSubmit} className="relative">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="w-full px-4 py-3 pr-20 text-sm text-white border rounded-xl bg-white/10 border-white/20 placeholder:text-white/50 focus:outline-none focus:bg-white/20 focus:border-white/30"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="absolute right-2 top-2 px-4 py-1.5 text-sm font-medium transition-all bg-white rounded-lg text-shama-blue hover:bg-shama-green hover:text-white disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <span className="inline-block w-4 h-4 border-2 rounded-full border-shama-blue/30 border-t-shama-blue animate-spin" />
-                    ) : (
-                      "Join"
-                    )}
-                  </button>
-                </form>
-              )}
-            </div>
           </motion.div>
         </div>
       </motion.div>

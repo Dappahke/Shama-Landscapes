@@ -163,7 +163,7 @@ This inquiry was submitted through the Shama Landscape Architects website.
   ];
 
   return (
-    <section className="relative py-20 bg-gradient-to-br from-shama-clay/10 to-shama-blue/5">
+    <section className="relative py-20 bg-linear-to-br from-shama-clay/10 to-shama-blue/5">
       <div className="max-w-6xl px-6 mx-auto">
         {/* Header Section */}
         <motion.div 
@@ -179,7 +179,7 @@ This inquiry was submitted through the Shama Landscape Architects website.
           <h2 className="mb-6 text-4xl font-bold text-shama-blue">
             Start Your <span className="text-shama-green">Landscape Journey</span>
           </h2>
-          <div className="w-16 h-0.5 mx-auto mb-6 bg-gradient-to-r from-shama-green to-shama-blue rounded-full" />
+          <div className="w-16 h-0.5 mx-auto mb-6 bg-linear-to-r from-shama-green to-shama-blue rounded-full" />
           <p className="max-w-2xl mx-auto text-lg leading-relaxed text-shama-black/80">
             Share your vision with us — we'll guide you through the process and create 
             a customized plan that brings your dream landscape to life.
@@ -344,7 +344,7 @@ This inquiry was submitted through the Shama Landscape Architects website.
                     </div>
                     <div className="w-full h-2 bg-gray-200 rounded-full">
                       <div
-                        className={`h-2 bg-gradient-to-r from-shama-green to-shama-blue rounded-full transition-all duration-500 ${
+                        className={`h-2 bg-linear-to-r from-shama-green to-shama-blue rounded-full transition-all duration-500 ${
                           step === 1 ? "w-1/2" : "w-full"
                         }`}
                       />

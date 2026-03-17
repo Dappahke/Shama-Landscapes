@@ -14,7 +14,6 @@ import {
   Users,
   Mail,
   AlertCircle,
-  MoreHorizontal,
   ArrowUpRight,
   Calendar
 } from "lucide-react";
@@ -44,15 +43,14 @@ export default function AdminDashboard() {
     try {
       setIsRefreshing(true);
       
-      // Parallel data fetching for better performance
       const [
         { data: projects },
         { count: chatCount },
         { count: unreadChatCount },
         { count: newsCount },
-        { data: recentProjects }
+        { data: recentProjectsData }
       ] = await Promise.all([
-        supabase.from('projects').select('status, id, title, created_at, cover_image').order('created_at', { ascending: false }).limit(5),
+        supabase.from('projects').select('status, id'),
         supabase.from('chat_conversations').select('*', { count: 'exact', head: true }),
         supabase.from('chat_conversations').select('*', { count: 'exact', head: true }).gt('unread_count', 0),
         supabase.from('newsletter_subscribers').select('*', { count: 'exact', head: true }),
@@ -67,7 +65,7 @@ export default function AdminDashboard() {
           messages: chatCount || 0,
           unreadMessages: unreadChatCount || 0,
           subscribers: newsCount || 0,
-          recentProjects: recentProjects || []
+          recentProjects: recentProjectsData || []
         });
       }
       setLastUpdated(new Date());
@@ -79,10 +77,33 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // Set up Realtime Subscriptions
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 30000); // 30 seconds for better performance
-    return () => clearInterval(interval);
+
+    // Listen for any changes on projects, messages, or subscribers
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'projects' },
+        () => fetchStats()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_conversations' },
+        () => fetchStats()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'newsletter_subscribers' },
+        () => fetchStats()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchStats]);
 
   // Stat cards configuration
@@ -123,7 +144,6 @@ export default function AdminDashboard() {
     { label: "Newsletter", icon: Mail, color: "bg-[#0F7F40]", href: "/admin/newsletter", badge: stats.subscribers },
   ];
 
-  // Format relative time
   const getRelativeTime = (date) => {
     const now = new Date();
     const projectDate = new Date(date);
@@ -137,18 +157,18 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen p-4 bg-gray-50/50 md:p-6 lg:p-8">
       {/* Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col justify-between gap-4 mb-8 lg:flex-row lg:items-center">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 md:w-14 md:h-14 bg-linear-to-br from-shama-green to-[#264653] rounded-2xl flex items-center justify-center shadow-lg">
-            <LayoutDashboard className="w-6 h-6 md:w-7 md:h-7 text-white" />
+            <LayoutDashboard className="w-6 h-6 text-white md:w-7 md:h-7" />
           </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-[#264653] tracking-tight">
               Dashboard
             </h1>
-            <p className="text-gray-500 text-sm md:text-base font-medium">
+            <p className="text-sm font-medium text-gray-500 md:text-base">
               Welcome back, Admin
             </p>
           </div>
@@ -164,25 +184,25 @@ export default function AdminDashboard() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
           
-          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-xs font-semibold text-green-700">
+          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-green-700 border border-green-100 bg-green-50 rounded-xl">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="hidden sm:inline">Live</span>
+            <span className="hidden sm:inline">Live Realtime</span>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions - Mobile Optimized */}
-      <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+      {/* Quick Actions */}
+      <div className="grid grid-cols-3 gap-3 mb-6 md:gap-4 md:mb-8">
         {quickActions.map((action) => (
           <Link
             key={action.label}
             href={action.href}
-            className="group flex flex-col items-center p-3 md:p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all active:scale-95"
+            className="flex flex-col items-center p-3 transition-all bg-white border border-gray-100 shadow-sm group md:p-4 rounded-2xl hover:shadow-md hover:border-gray-200 active:scale-95"
           >
             <div className={`${action.color} p-2.5 md:p-3 rounded-xl mb-2 group-hover:scale-110 transition-transform`}>
-              <action.icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
+              <action.icon className="w-4 h-4 text-white md:w-5 md:h-5" />
             </div>
-            <span className="text-xs md:text-sm font-semibold text-gray-700 text-center leading-tight">
+            <span className="text-xs font-semibold leading-tight text-center text-gray-700 md:text-sm">
               {action.label}
             </span>
             {action.badge > 0 && (
@@ -195,13 +215,12 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+      <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-3 md:gap-6 md:mb-8">
         {statCards.map((card, i) => (
           <Link 
             key={i} 
             href={card.href}
-            className="group relative overflow-hidden bg-linear-to-br ${card.color} p-5 md:p-6 rounded-2xl md:rounded-3xl text-white shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
-            style={{ background: `linear-gradient(135deg, ${card.color.split(' ')[0].replace('from-[', '').replace(']', '')} 0%, ${card.color.split(' ')[1].replace('to-[', '').replace(']', '')} 100%)` }}
+            className={`group relative overflow-hidden bg-linear-to-br ${card.color} p-5 md:p-6 rounded-2xl md:rounded-3xl text-white shadow-lg hover:shadow-xl transition-all active:scale-[0.98]`}
           >
             <div className="flex items-start justify-between mb-4">
               <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -214,8 +233,8 @@ export default function AdminDashboard() {
             </div>
             
             <div>
-              <p className="text-xs md:text-sm font-medium opacity-90 uppercase tracking-wider">{card.label}</p>
-              <h3 className="text-3xl md:text-4xl font-black mt-1">
+              <p className="text-xs font-medium tracking-wider uppercase md:text-sm opacity-90">{card.label}</p>
+              <h3 className="mt-1 text-3xl font-black md:text-4xl">
                 {loading && stats.total === 0 ? (
                   <span className="animate-pulse">...</span>
                 ) : (
@@ -223,42 +242,37 @@ export default function AdminDashboard() {
                 )}
               </h3>
             </div>
-            
-            <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
+            <div className="absolute w-24 h-24 transition-transform duration-500 rounded-full -bottom-6 -right-6 bg-white/10 blur-2xl group-hover:scale-150" />
           </Link>
         ))}
       </div>
 
-      {/* Secondary Stats & Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Progress Overview */}
-        <div className="lg:col-span-2 bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="p-5 bg-white border border-gray-100 shadow-sm lg:col-span-2 md:p-6 rounded-2xl md:rounded-3xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg md:text-xl font-bold text-[#264653] flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-shama-green" />
               Project Completion
             </h2>
-            <span className="text-2xl md:text-3xl font-black text-shama-green">{completionRate}%</span>
+            <span className="text-2xl font-black md:text-3xl text-shama-green">{completionRate}%</span>
           </div>
           
-          {/* Progress Bar */}
-          <div className="h-4 bg-gray-100 rounded-full overflow-hidden mb-4">
+          <div className="h-4 mb-4 overflow-hidden bg-gray-100 rounded-full">
             <div 
               className="h-full bg-linear-to-r from-shama-green to-[#13a350] rounded-full transition-all duration-1000"
               style={{ width: `${completionRate}%` }}
             />
           </div>
           
-          <div className="flex justify-between text-sm text-gray-500 mb-6">
+          <div className="flex justify-between mb-6 text-sm text-gray-500">
             <span>{stats.completed} completed</span>
             <span>{stats.total} total</span>
           </div>
 
-          {/* Recent Projects List */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Recent Projects</h3>
+            <h3 className="mb-3 text-sm font-bold tracking-wider text-gray-400 uppercase">Recent Projects</h3>
             {stats.recentProjects.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
+              <div className="py-8 text-center text-gray-400">
                 <Briefcase className="w-12 h-12 mx-auto mb-3 opacity-20" />
                 <p className="text-sm">No projects yet</p>
               </div>
@@ -267,19 +281,19 @@ export default function AdminDashboard() {
                 <Link 
                   key={project.id}
                   href={`/admin/projects`}
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group"
+                  className="flex items-center gap-3 p-3 transition-colors bg-gray-50 rounded-xl hover:bg-gray-100 group"
                 >
-                  <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden shrink-0">
+                  <div className="w-12 h-12 overflow-hidden bg-gray-200 rounded-lg shrink-0">
                     {project.cover_image ? (
-                      <img src={project.cover_image} alt="" className="w-full h-full object-cover" />
+                      <img src={project.cover_image} alt="" className="object-cover w-full h-full" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <div className="flex items-center justify-center w-full h-full text-gray-400">
                         <Briefcase className="w-5 h-5" />
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-800 truncate text-sm md:text-base">{project.title}</h4>
+                    <h4 className="text-sm font-semibold text-gray-800 truncate md:text-base">{project.title}</h4>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`
                         text-[10px] px-2 py-0.5 rounded-full font-medium
@@ -289,23 +303,21 @@ export default function AdminDashboard() {
                       `}>
                         {project.status}
                       </span>
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <span className="flex items-center gap-1 text-xs text-gray-400">
                         <Calendar className="w-3 h-3" />
                         {getRelativeTime(project.created_at)}
                       </span>
                     </div>
                   </div>
-                  <ArrowUpRight className="w-5 h-5 text-gray-400 group-hover:text-shama-green transition-colors" />
+                  <ArrowUpRight className="w-5 h-5 text-gray-400 transition-colors group-hover:text-shama-green" />
                 </Link>
               ))
             )}
           </div>
         </div>
 
-        {/* Right Column - Communications & Status */}
         <div className="space-y-6">
-          {/* Messages Card */}
-          <div className="bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm">
+          <div className="p-5 bg-white border border-gray-100 shadow-sm md:p-6 rounded-2xl md:rounded-3xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-[#264653] flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-shama-terra" />
@@ -317,7 +329,7 @@ export default function AdminDashboard() {
             </div>
             
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100">
+              <div className="flex items-center justify-between p-3 border bg-amber-50 rounded-xl border-amber-100">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600" />
                   <span className="text-sm font-medium text-amber-800">Unread</span>
@@ -334,8 +346,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Newsletter Card */}
-          <div className="bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm">
+          <div className="p-5 bg-white border border-gray-100 shadow-sm md:p-6 rounded-2xl md:rounded-3xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-[#264653] flex items-center gap-2">
                 <Mail className="w-5 h-5 text-shama-green" />
@@ -347,19 +358,18 @@ export default function AdminDashboard() {
             </div>
             
             <div className="flex items-center gap-4 p-4 bg-linear-to-br from-shama-green/5 to-shama-green/10 rounded-xl">
-              <div className="w-12 h-12 bg-shama-green rounded-xl flex items-center justify-center">
+              <div className="flex items-center justify-center w-12 h-12 bg-shama-green rounded-xl">
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
                 <p className="text-2xl font-black text-[#264653]">{stats.subscribers}</p>
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Subscribers</p>
+                <p className="text-xs font-medium tracking-wider text-gray-500 uppercase">Subscribers</p>
               </div>
             </div>
           </div>
 
-          {/* System Status */}
           <div className="bg-linear-to-br from-[#264653] to-[#1a3a47] p-5 md:p-6 rounded-2xl md:rounded-3xl text-white shadow-lg">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <h2 className="flex items-center gap-2 mb-4 text-lg font-bold">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
               System Status
             </h2>
@@ -367,21 +377,11 @@ export default function AdminDashboard() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm opacity-90">Database</span>
-                <span className="text-xs font-bold bg-green-500/30 text-green-300 px-2 py-1 rounded-full">
-                  Connected
-                </span>
+                <span className="px-2 py-1 text-xs font-bold text-green-300 rounded-full bg-green-500/30">Connected</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm opacity-90">Realtime</span>
-                <span className="text-xs font-bold bg-green-500/30 text-green-300 px-2 py-1 rounded-full">
-                  Active
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm opacity-90">API Status</span>
-                <span className="text-xs font-bold bg-green-500/30 text-green-300 px-2 py-1 rounded-full">
-                  Healthy
-                </span>
+                <span className="px-2 py-1 text-xs font-bold text-green-300 rounded-full bg-green-500/30">Active</span>
               </div>
             </div>
             

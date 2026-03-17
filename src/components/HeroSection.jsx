@@ -34,7 +34,7 @@ export default function HeroSection() {
       </video>
 
       {/* Overlay (lighter so video shows clearly) */}
-      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/60 via-black/25 to-transparent" />
+      <div className="absolute inset-0 z-10 bg-linear-to-t from-black/60 via-black/25 to-transparent" />
 
       {/* Content */}
       <div
