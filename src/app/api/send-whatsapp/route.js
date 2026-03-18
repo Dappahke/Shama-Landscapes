@@ -8,22 +8,37 @@ const supabase = createClient(
 
 export async function POST(req) {
   try {
-    const formData = await req.formData();
+    let formData;
+    let body = "";
 
-    const message = formData.get("Body");
-    const from = formData.get("From"); // e.g. whatsapp:+2547xxxxxxx
-    const profileName = formData.get("ProfileName") || "WhatsApp";
+    // Determine if request is JSON (Postman) or form-data (Twilio)
+    const contentType = req.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      formData = await req.json();
+      body = formData.message || formData.Body || "";
+    } else if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
+      formData = await req.formData();
+      body = formData.get("Body") || "";
+    } else {
+      return new Response("Unsupported content-type", { status: 415 });
+    }
+
+    // Get sender info
+    const from = formData.get?.("From") || formData.phone || formData.from;
+    const profileName = formData.get?.("ProfileName") || formData.name || "WhatsApp";
 
     if (!from) {
+      console.error("Missing sender info");
       return new Response("Missing sender", { status: 400 });
     }
 
-    // ✅ Normalize phone
+    // Normalize phone
     const phone = from.replace("whatsapp:", "").trim();
 
-    console.log("Incoming WhatsApp:", phone, message);
+    console.log("Incoming WhatsApp:", phone, body);
 
-    // 🔍 Find conversation using phone
+    // 🔍 Find existing conversation
     const { data: convo, error: convoError } = await supabase
       .from("chat_conversations")
       .select("*")
@@ -37,9 +52,9 @@ export async function POST(req) {
       return new Response("DB error", { status: 500 });
     }
 
-    // 🆕 If no conversation exists → create one
     let conversationId = convo?.id;
 
+    // 🆕 Create conversation if none exists
     if (!conversationId) {
       const { data: newConv, error: createError } = await supabase
         .from("chat_conversations")
@@ -61,15 +76,15 @@ export async function POST(req) {
       conversationId = newConv.id;
     }
 
-    // 💬 Save message into chat_messages
+    // 💬 Save message
     const { error: msgError } = await supabase
       .from("chat_messages")
       .insert([{
         conversation_id: conversationId,
-        sender_type: "agent",
+        sender_type: "visitor", // mark WhatsApp messages as visitor
         sender_id: phone,
         sender_name: profileName,
-        content: message || "[WhatsApp message]"
+        content: body || "[WhatsApp message]"
       }]);
 
     if (msgError) {
@@ -78,19 +93,22 @@ export async function POST(req) {
     }
 
     // 🔄 Update conversation last message
-    await supabase
+    const { error: updateError } = await supabase
       .from("chat_conversations")
       .update({
-        last_message: message,
+        last_message: body,
         last_message_at: new Date(),
-        unread_count: 0
+        unread_count: convo?.unread_count != null ? convo.unread_count + 1 : 1
       })
       .eq("id", conversationId);
 
-    return new Response("OK", { status: 200 });
+    if (updateError) {
+      console.error("Conversation update error:", updateError);
+    }
 
+    return new Response(JSON.stringify({ status: "ok", conversationId }), { status: 200 });
   } catch (err) {
     console.error("Webhook error:", err);
-    return new Response("Server error", { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
