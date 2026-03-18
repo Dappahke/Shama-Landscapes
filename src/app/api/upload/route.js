@@ -6,6 +6,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY // SERVICE ROLE key, keep secret
 );
 
+export const dynamic = 'force-dynamic';
+
 // POST handler
 export async function POST(req) {
   try {
