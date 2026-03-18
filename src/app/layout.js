@@ -245,6 +245,8 @@ export default function RootLayout({ children }) {
 
         <Footer />
         <LiveChat /> {/* ← Now properly imported */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
