@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LiveChat from "@/components/LiveChat"; // ← ADD THIS IMPORT
 import '@fortawesome/fontawesome-free/css/all.min.css';
+import { Analytics } from '@vercel/analytics/next';
 
 // ============================================
 // FONT CONFIGURATION
@@ -243,6 +244,7 @@ export default function RootLayout({ children }) {
 
         <Footer />
         <LiveChat /> {/* ← Now properly imported */}
+        <Analytics />
       </body>
     </html>
   );
