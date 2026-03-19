@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://shamalandscapes.co.ke
+
+# Sitemaps
+Sitemap: https://shamalandscapes.co.ke/sitemap.xml

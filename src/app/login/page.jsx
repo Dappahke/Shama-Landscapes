@@ -120,7 +120,7 @@ export default function AdminLoginPage() {
     <div className="relative flex items-center justify-center min-h-screen px-4 overflow-hidden">
       {/* Background Image */}
       <Image 
-        src="/src/media/hero-poster.png" // Double check this path exists in your public folder
+        src="/assets/hero-poster.png" 
         alt="Background"
         fill
         className="z-0 object-cover"

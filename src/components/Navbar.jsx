@@ -9,8 +9,6 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
 
-  // --- HIDE NAVBAR ON ADMIN & LOGIN ROUTES ---
-  const isExcludedPage = pathname.startsWith("/admin") || pathname === "/login";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,14 +19,11 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // If we are on an admin or login page, don't render anything
-  if (isExcludedPage) return null;
 
   const navItems = [
-    { href: "/about", label: "About" },
-    { href: "/services", label: "Services" },
-    { href: "/projects", label: "Projects" },
-    { href: "/sustainability", label: "Sustainability" },
+    { href: "/about", label: "About Us" },
+    { href: "/approach", label: "Our Approach" },
+    { href: "/projects", label: "Portfolio" },
     { href: "/blog", label: "Blog" },
     { href: "/contact", label: "Contact" },
   ];

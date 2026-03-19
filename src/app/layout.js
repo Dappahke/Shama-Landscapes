@@ -1,11 +1,7 @@
 import { Montserrat } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import LiveChat from "@/components/LiveChat"; // ← ADD THIS IMPORT
+import LayoutVisibility from "@/components/LayoutVisibility"; // ✅ NEW
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import { Analytics } from "@vercel/analytics/next"
-import { SpeedInsights } from "@vercel/speed-insights/next"
 
 // ============================================
 // FONT CONFIGURATION
@@ -174,7 +170,8 @@ function generateStructuredData() {
           itemOffered: {
             "@type": "Service",
             name: "Landscape Design and Planning",
-            description: "Comprehensive landscape architecture and master planning services",
+            description:
+              "Comprehensive landscape architecture and master planning services",
           },
         },
         {
@@ -182,7 +179,8 @@ function generateStructuredData() {
           itemOffered: {
             "@type": "Service",
             name: "Sustainable Site Development",
-            description: "Eco-friendly site development and environmental planning",
+            description:
+              "Eco-friendly site development and environmental planning",
           },
         },
         {
@@ -190,7 +188,8 @@ function generateStructuredData() {
           itemOffered: {
             "@type": "Service",
             name: "Irrigation and Garden Design",
-            description: "Custom irrigation systems and garden landscape design",
+            description:
+              "Custom irrigation systems and garden landscape design",
           },
         },
       ],
@@ -208,15 +207,15 @@ export const viewport = {
   themeColor: "#0F7F40",
 };
 
+// ============================================
+// ROOT LAYOUT
+// ============================================
+
 export default function RootLayout({ children }) {
   const structuredData = generateStructuredData();
 
   return (
-    <html
-      lang="en"
-      dir="ltr"
-      className={`${montserrat.variable}`}
-    >
+    <html lang="en" dir="ltr" className={montserrat.variable}>
       <head>
         <link rel="icon" href={siteConfig.logo} type="image/png" />
         <link rel="apple-touch-icon" href={siteConfig.logo} />
@@ -230,6 +229,7 @@ export default function RootLayout({ children }) {
       </head>
 
       <body className="flex flex-col min-h-screen antialiased font-montserrat bg-shama-clay text-shama-black">
+        {/* Skip Link */}
         <a
           href="#main-content"
           className="transition-all sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-shama-green focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-shama-green"
@@ -237,14 +237,10 @@ export default function RootLayout({ children }) {
           Skip to main content
         </a>
 
-        <Navbar />
-
-        <main id="main-content">
+        {/* ✅ CONDITIONAL UI CONTROL */}
+        <LayoutVisibility>
           {children}
-        </main>
-
-        <Footer />
-        <LiveChat /> {/* ← Now properly imported */}
+        </LayoutVisibility>
       </body>
     </html>
   );
