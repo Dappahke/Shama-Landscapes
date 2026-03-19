@@ -516,7 +516,7 @@ export default function Approach() {
                   alt="Urban design and placemaking"
                   fill
                   className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  sizes="(max-width: 720px) 100vw, 50vw"
                 />
               </div>
             </AnimatedSection>
