@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Projects from "@/components/Projects";
 
 export const metadata = {
@@ -11,6 +12,19 @@ export const metadata = {
   },
 };
 
+// Loading component for Suspense fallback
+function ProjectsLoading() {
+  return (
+    <div className="projects-loading">
+      <p>Loading projects...</p>
+    </div>
+  );
+}
+
 export default function ProjectsPage() {
-  return <Projects />;
+  return (
+    <Suspense fallback={<ProjectsLoading />}>
+      <Projects />
+    </Suspense>
+  );
 }
