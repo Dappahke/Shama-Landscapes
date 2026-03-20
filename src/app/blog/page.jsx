@@ -48,6 +48,45 @@ export const metadata = {
   },
 };
 
+// Category-specific CTAs for strategic conversion
+const categoryCTAs = {
+  "sustainable-design": {
+    title: "Ready for a Sustainable Landscape?",
+    text: "Transform your outdoor space with eco-conscious design that thrives in Kenya's climate.",
+    cta: "Explore Our Approach",
+    link: "/approach",
+    color: "shama-green"
+  },
+  "plant-guides": {
+    title: "Need Expert Plant Selection?",
+    text: "Get a custom plant palette tailored to your site conditions and maintenance preferences.",
+    cta: "Request a Consultation",
+    link: "/contact",
+    color: "shama-terra"
+  },
+  "urban-planning": {
+    title: "Planning a Commercial Development?",
+    text: "We specialize in large-scale landscape architecture for developments across East Africa.",
+    cta: "Discuss Your Project",
+    link: "/contact",
+    color: "shama-blue"
+  },
+  "residential": {
+    title: "Dreaming of Your Perfect Garden?",
+    text: "From concept to completion, we create outdoor spaces that reflect your lifestyle.",
+    cta: "Start Your Project",
+    link: "/contact",
+    color: "shama-terra"
+  },
+  "maintenance": {
+    title: "Protect Your Investment",
+    text: "Professional landscape maintenance to keep your garden thriving year-round.",
+    cta: "View Maintenance Plans",
+    link: "/services/maintenance",
+    color: "shama-green"
+  }
+};
+
 // Fetch posts with categories
 async function getPosts() {
   const query = `
@@ -73,6 +112,14 @@ async function getPosts() {
       "author": author->{
         name,
         "image": image.asset->url
+      },
+      "relatedProjects": *[_type == "project" && references(^._id)] | order(_createdAt desc) [0...2] {
+        title,
+        slug,
+        location,
+        mainImage {
+          asset->{ url }
+        }
       }
     }
   `;
@@ -100,6 +147,26 @@ async function getCategories() {
   } catch (error) {
     console.error("Sanity Categories Fetch Error:", error);
     return [];
+  }
+}
+
+// Fetch featured testimonial
+async function getFeaturedTestimonial() {
+  const query = `
+    *[_type == "testimonial" && featured == true] [0] {
+      quote,
+      author,
+      role,
+      project->{
+        title,
+        slug
+      }
+    }
+  `;
+  try {
+    return await client.fetch(query, {}, { next: { revalidate: 3600 } });
+  } catch (error) {
+    return null;
   }
 }
 
@@ -158,30 +225,53 @@ function generateStructuredData(posts) {
   };
 }
 
-// Generate category structured data
-function generateCategoryStructuredData(categories) {
+// Generate local business schema
+function generateLocalBusinessSchema() {
   return {
     "@context": "https://schema.org",
-    "@type": "ItemList",
-    itemListElement: categories.map((cat, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
-      name: cat.title,
-      url: `${SITE_URL}/blog/category/${cat.slug?.current}`,
-      description: cat.description,
-    })),
+    "@type": "LandscapeArchitect",
+    name: "Shama Landscape Architects",
+    image: `${SITE_URL}/assets/shama_landscape_logo.png`,
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "KE",
+      addressRegion: "Nairobi",
+      addressLocality: "Nairobi"
+    },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: "-1.2921",
+      longitude: "36.8219"
+    },
+    url: SITE_URL,
+    telephone: "+254-XXX-XXXXXX",
+    priceRange: "$$$",
+    areaServed: {
+      "@type": "City",
+      name: "Nairobi"
+    },
+    serviceType: ["Landscape Architecture", "Garden Design", "Urban Planning", "Landscape Maintenance"]
   };
 }
 
 export default async function BlogPage() {
-  const [posts, categories] = await Promise.all([getPosts(), getCategories()]);
+  const [posts, categories, testimonial] = await Promise.all([
+    getPosts(), 
+    getCategories(),
+    getFeaturedTestimonial()
+  ]);
   
   const featuredPost = posts[0];
   const recentPosts = posts.slice(1, 4);
   const olderPosts = posts.slice(4);
 
+  // Get CTA for featured post category
+  const featuredCTA = featuredPost?.category?.slug?.current 
+    ? categoryCTAs[featuredPost.category.slug.current] 
+    : null;
+
   const jsonLd = generateStructuredData(posts);
-  const categoryJsonLd = generateCategoryStructuredData(categories);
+  const localBusinessJsonLd = generateLocalBusinessSchema();
 
   return (
     <div className="rooted-journal">
@@ -192,7 +282,7 @@ export default async function BlogPage() {
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
 
       <main>
@@ -207,11 +297,11 @@ export default async function BlogPage() {
           </div>
         </nav>
 
-        {/* Hero Section - Using a Dedicated Journal Hero Image */}
+        {/* Hero Section */}
         <header className="journal-hero">
           <div className="journal-hero__bg">
             <Image
-              src="/assets/journal-hero.jpg" // Independent hero image asset
+              src="/assets/journal-hero.jpg"
               alt="Sustainable Landscape Architecture in Kenya"
               fill
               priority
@@ -256,6 +346,11 @@ export default async function BlogPage() {
                 <span className="journal-stat__number">{categories.length}</span>
                 <span className="journal-stat__label">Topics</span>
               </div>
+              <span className="journal-stat__divider" />
+              <div className="journal-stat">
+                <span className="journal-stat__number">500+</span>
+                <span className="journal-stat__label">Readers</span>
+              </div>
             </div>
 
             <div className="journal-scroll">
@@ -266,7 +361,7 @@ export default async function BlogPage() {
           </div>
         </header>
 
-        {/* Featured Post Section */}
+        {/* Featured Post Section with Strategic CTA */}
         {featuredPost && (
           <section className="journal-section journal-featured">
             <div className="journal-container">
@@ -308,6 +403,22 @@ export default async function BlogPage() {
                       <h2 className="journal-featured__title">{featuredPost.title}</h2>
                       <p className="journal-featured__excerpt">{featuredPost.excerpt}</p>
                     </Link>
+                    
+                    {/* Strategic CTA based on category */}
+                    {featuredCTA && (
+                      <div className="journal-featured__cta">
+                        <p className="journal-featured__cta-text">{featuredCTA.text}</p>
+                        <Link 
+                          href={featuredCTA.link}
+                          className={`journal-featured__cta-btn journal-featured__cta-btn--${featuredCTA.color}`}
+                        >
+                          {featuredCTA.cta}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                        </Link>
+                      </div>
+                    )}
                     
                     <div className="journal-featured__footer">
                       {featuredPost.author && (
@@ -376,6 +487,19 @@ export default async function BlogPage() {
                         <h3 className="journal-card__title">{post.title}</h3>
                       </Link>
                       <p className="journal-card__excerpt">{post.excerpt}</p>
+                      
+                      {/* Quick CTA for posts with related projects */}
+                      {post.relatedProjects?.length > 0 && (
+                        <Link 
+                          href={`/projects/${post.relatedProjects[0].slug?.current}`}
+                          className="journal-card__project-link"
+                        >
+                          <span>See in project: {post.relatedProjects[0].title}</span>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                        </Link>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -383,6 +507,27 @@ export default async function BlogPage() {
             </div>
           </section>
         )}
+
+        {/* Strategic Services Banner */}
+        <section className="journal-services-banner">
+          <div className="journal-container">
+            <div className="journal-services-banner__content">
+              <h2 className="journal-services-banner__title">Turn Inspiration into Reality</h2>
+              <p className="journal-services-banner__text">
+                Our journal shares our process. Our studio brings it to life. 
+                Let's create something extraordinary together.
+              </p>
+              <div className="journal-services-banner__buttons">
+                <Link href="/contact" className="journal-services-banner__btn journal-services-banner__btn--primary">
+                  Start Your Project
+                </Link>
+                <Link href="/projects" className="journal-services-banner__btn journal-services-banner__btn--secondary">
+                  View Our Work
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Archive / Older Posts */}
         {olderPosts.length > 0 && (
@@ -392,6 +537,25 @@ export default async function BlogPage() {
                 <div className="journal-archive__sidebar">
                   <h2 className="journal-archive__title">From the Archive</h2>
                   <p className="journal-archive__desc">Deeper dives into landscape philosophy and project case studies.</p>
+                  
+                  {/* Testimonial in sidebar */}
+                  {testimonial && (
+                    <div className="journal-testimonial-mini">
+                      <div className="journal-testimonial-mini__stars">
+                        {[...Array(5)].map((_, i) => (
+                          <svg key={i} className="journal-testimonial-mini__star" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                      <blockquote className="journal-testimonial-mini__quote">
+                        "{testimonial.quote}"
+                      </blockquote>
+                      <cite className="journal-testimonial-mini__author">
+                        — {testimonial.author}, {testimonial.role}
+                      </cite>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="journal-archive__list">
@@ -422,11 +586,17 @@ export default async function BlogPage() {
         <div className="journal-container">
           <div className="journal-topics__header">
             <h2>Browse by Category</h2>
+            <p>Find insights tailored to your project type</p>
           </div>
           <div className="journal-topics__cloud">
             {categories.map((category) => (
-              <Link key={category._id} href={`/blog/category/${category.slug?.current}`} className="journal-topic">
-                {category.title} {category.count > 0 && <span className="journal-topic__count">{category.count}</span>}
+              <Link 
+                key={category._id} 
+                href={`/blog/category/${category.slug?.current}`} 
+                className="journal-topic"
+              >
+                {category.title} 
+                {category.count > 0 && <span className="journal-topic__count">{category.count}</span>}
               </Link>
             ))}
           </div>
@@ -437,11 +607,22 @@ export default async function BlogPage() {
         <div className="journal-container">
           <div className="journal-newsletter__content">
             <h2 className="journal-newsletter__title">Stay Rooted</h2>
-            <p className="journal-newsletter__text">Monthly insights on sustainable design and Kenyan outdoor living.</p>
+            <p className="journal-newsletter__text">
+              Join 500+ homeowners receiving monthly design tips. 
+              <span className="journal-newsletter__highlight"> Free native plant guide</span> for new subscribers.
+            </p>
             <form className="journal-newsletter__form">
-              <input type="email" placeholder="Your email address" className="journal-newsletter__input" required />
+              <input 
+                type="email" 
+                placeholder="Your email address" 
+                className="journal-newsletter__input" 
+                required 
+              />
               <button type="submit" className="journal-newsletter__btn">Subscribe</button>
             </form>
+            <p className="journal-newsletter__disclaimer">
+              No spam. Unsubscribe anytime. We respect your privacy.
+            </p>
           </div>
         </div>
       </section>

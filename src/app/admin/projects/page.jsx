@@ -10,7 +10,6 @@ import {
   CheckCircle2, 
   Clock, 
   AlertCircle,
-  Image as ImageIcon,
   MapPin,
   Calendar,
   Building,
@@ -18,6 +17,8 @@ import {
   ArrowUpDown
 } from "lucide-react";
 import Link from "next/link";
+import ImageUpload from "@/components/ImageUpload";
+import GalleryUpload from "@/components/GalleryUpload";
 
 export default function AdminProjects() {
   const [projects, setProjects] = useState([]);
@@ -27,15 +28,12 @@ export default function AdminProjects() {
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState("desc");
   
-  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
   
-  // Form state
   const [formData, setFormData] = useState({
-    id: "",
     title: "",
     tagline: "",
     description: "",
@@ -49,11 +47,9 @@ export default function AdminProjects() {
     status: "In Progress"
   });
   
-  const [galleryInput, setGalleryInput] = useState("");
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch projects via API
   const fetchProjects = useCallback(async () => {
     try {
       setLoading(true);
@@ -76,7 +72,6 @@ export default function AdminProjects() {
     fetchProjects();
   }, [fetchProjects]);
 
-  // Filter and sort projects (client-side)
   const filteredProjects = projects.filter(p => {
     const matchesSearch = 
       p.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -89,7 +84,6 @@ export default function AdminProjects() {
     return matchesSearch && matchesStatus;
   });
 
-  // Form handlers
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -98,29 +92,11 @@ export default function AdminProjects() {
     }
   };
 
-  const addGalleryImage = () => {
-    if (galleryInput.trim() && !formData.image_gallery.includes(galleryInput.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        image_gallery: [...prev.image_gallery, galleryInput.trim()]
-      }));
-      setGalleryInput("");
-    }
-  };
-
-  const removeGalleryImage = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      image_gallery: prev.image_gallery.filter((_, i) => i !== index)
-    }));
-  };
-
   const validateForm = () => {
     const errors = {};
     if (!formData.title.trim()) errors.title = "Title is required";
-    if (!formData.id.trim()) errors.id = "Project ID is required";
     if (!formData.description.trim()) errors.description = "Description is required";
-    if (!formData.cover_url.trim()) errors.cover_url = "Cover image URL is required";
+    if (!formData.cover_url.trim()) errors.cover_url = "Cover image is required";
     if (!formData.location.trim()) errors.location = "Location is required";
     if (!formData.year.trim()) errors.year = "Year is required";
     if (!formData.project_type.trim()) errors.project_type = "Project type is required";
@@ -136,36 +112,19 @@ export default function AdminProjects() {
     setIsSubmitting(true);
     
     try {
-      const projectData = {
-        ...formData,
-        created_at: editingProject ? formData.created_at : new Date().toISOString()
-      };
-
       let response;
       
       if (editingProject) {
-        // Update existing
         response = await fetch("/api/admin/projects", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...projectData, id: editingProject.id })
+          body: JSON.stringify({ ...formData, id: editingProject.id })
         });
       } else {
-        // Check if ID exists first
-        const checkRes = await fetch(`/api/admin/projects/check-id?id=${formData.id}`);
-        const checkResult = await checkRes.json();
-        
-        if (checkResult.exists) {
-          setFormErrors(prev => ({ ...prev, id: "Project ID already exists" }));
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Insert new
         response = await fetch("/api/admin/projects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(projectData)
+          body: JSON.stringify(formData)
         });
       }
 
@@ -207,8 +166,17 @@ export default function AdminProjects() {
   const openEditModal = (project) => {
     setEditingProject(project);
     setFormData({
-      ...project,
-      image_gallery: project.image_gallery || []
+      title: project.title,
+      tagline: project.tagline || "",
+      description: project.description || "",
+      cover_url: project.cover_url || "",
+      image_gallery: project.image_gallery || [],
+      location: project.location || "",
+      year: project.year || "",
+      project_type: project.project_type || "",
+      client: project.client || "",
+      area: project.area || "",
+      status: project.status || "In Progress"
     });
     setIsModalOpen(true);
   };
@@ -221,7 +189,6 @@ export default function AdminProjects() {
 
   const resetForm = () => {
     setFormData({
-      id: "",
       title: "",
       tagline: "",
       description: "",
@@ -234,7 +201,6 @@ export default function AdminProjects() {
       area: "",
       status: "In Progress"
     });
-    setGalleryInput("");
     setFormErrors({});
   };
 
@@ -263,43 +229,26 @@ export default function AdminProjects() {
     }
   };
 
-  // Generate project ID from title
-  const generateId = (title) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  };
-
-  const handleTitleChange = (e) => {
-    const title = e.target.value;
-    setFormData(prev => ({
-      ...prev,
-      title,
-      id: editingProject ? prev.id : generateId(title)
-    }));
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-12 h-12 border-b-2 rounded-full animate-spin border-shama-green"></div>
+      <div className="flex items-center justify-center min-h-screen bg-[#F5EBE8]">
+        <div className="w-12 h-12 border-b-2 rounded-full animate-spin border-[#0F7F40]"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 bg-gray-50/50 md:p-6 lg:p-8">
+    <div className="min-h-screen p-4 bg-[#F5EBE8] md:p-6 lg:p-8">
       {/* Header */}
       <div className="flex flex-col justify-between gap-4 mb-8 lg:flex-row lg:items-center">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-[#264653]">Projects</h1>
-          <p className="mt-1 text-gray-500">Manage your portfolio and track project status</p>
+          <h1 className="text-2xl font-black text-black md:text-3xl">Projects</h1>
+          <p className="mt-1 text-black/60">Manage your portfolio and track project status</p>
         </div>
         
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 px-6 py-3 bg-shama-green text-white rounded-xl font-semibold hover:bg-[#0c6633] transition-all shadow-lg hover:shadow-xl active:scale-95"
+          className="flex items-center gap-2 px-6 py-3 bg-[#0F7F40] text-white rounded-xl font-semibold hover:bg-[#0c6633] transition-all shadow-lg hover:shadow-xl active:scale-95"
         >
           <Plus size={20} />
           Add Project
@@ -307,16 +256,16 @@ export default function AdminProjects() {
       </div>
 
       {/* Filters & Search */}
-      <div className="p-4 mb-6 bg-white border border-gray-100 shadow-sm rounded-2xl">
+      <div className="p-4 mb-6 bg-white border shadow-sm border-black/5 rounded-2xl">
         <div className="flex flex-col gap-4 md:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute text-gray-400 -translate-y-1/2 left-3 top-1/2" size={20} />
+            <Search className="absolute -translate-y-1/2 text-black/40 left-3 top-1/2" size={20} />
             <input
               type="text"
               placeholder="Search projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:bg-white transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-[#F5EBE8] border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:bg-white transition-all"
             />
           </div>
           
@@ -324,7 +273,7 @@ export default function AdminProjects() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/20 text-sm font-medium"
+              className="px-4 py-2.5 bg-[#F5EBE8] border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 text-sm font-medium"
             >
               <option value="all">All Status</option>
               <option value="In Progress">In Progress</option>
@@ -335,10 +284,10 @@ export default function AdminProjects() {
               onClick={() => {
                 setSortOrder(prev => prev === "asc" ? "desc" : "asc");
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#F5EBE8] border border-black/10 rounded-xl hover:bg-[#F5EBE8]/80 transition-colors"
             >
-              <ArrowUpDown size={18} className="text-gray-500" />
-              <span className="hidden text-sm font-medium text-gray-600 sm:inline">
+              <ArrowUpDown size={18} className="text-black/60" />
+              <span className="hidden text-sm font-medium text-black/60 sm:inline">
                 {sortOrder === "desc" ? "Newest" : "Oldest"}
               </span>
             </button>
@@ -349,14 +298,14 @@ export default function AdminProjects() {
       {/* Projects Grid */}
       {filteredProjects.length === 0 ? (
         <div className="py-16 text-center">
-          <div className="flex items-center justify-center w-20 h-20 mx-auto mb-4 bg-gray-100 rounded-full">
-            <Building className="w-10 h-10 text-gray-300" />
+          <div className="flex items-center justify-center w-20 h-20 mx-auto mb-4 bg-[#F5EBE8] rounded-full">
+            <Building className="w-10 h-10 text-black/20" />
           </div>
-          <h3 className="mb-2 text-lg font-semibold text-gray-600">No projects found</h3>
-          <p className="mb-6 text-gray-400">Get started by adding your first project</p>
+          <h3 className="mb-2 text-lg font-semibold text-black/60">No projects found</h3>
+          <p className="mb-6 text-black/40">Get started by adding your first project</p>
           <button
             onClick={openAddModal}
-            className="px-6 py-2.5 bg-shama-green text-white rounded-xl font-medium hover:bg-[#0c6633] transition-colors"
+            className="px-6 py-2.5 bg-[#0F7F40] text-white rounded-xl font-medium hover:bg-[#0c6633] transition-colors"
           >
             Add Project
           </button>
@@ -366,7 +315,7 @@ export default function AdminProjects() {
           {filteredProjects.map((project) => (
             <div
               key={project.id}
-              className="overflow-hidden transition-all bg-white border border-gray-100 shadow-sm rounded-2xl hover:shadow-lg group"
+              className="overflow-hidden transition-all bg-white border shadow-sm border-black/5 rounded-2xl hover:shadow-lg group"
             >
               {/* Cover Image */}
               <div className="relative h-48 overflow-hidden">
@@ -379,8 +328,8 @@ export default function AdminProjects() {
                   <span className={`
                     px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
                     ${project.status === "Completed" 
-                      ? "bg-green-500 text-white" 
-                      : "bg-amber-500 text-white"}
+                      ? "bg-[#0F7F40] text-white" 
+                      : "bg-[#BD7563] text-white"}
                   `}>
                     {project.status}
                   </span>
@@ -390,7 +339,7 @@ export default function AdminProjects() {
                     onClick={() => openEditModal(project)}
                     className="p-2 transition-colors rounded-lg shadow-lg bg-white/90 backdrop-blur-sm hover:bg-white"
                   >
-                    <Edit2 size={16} className="text-gray-700" />
+                    <Edit2 size={16} className="text-black/70" />
                   </button>
                   <button
                     onClick={() => confirmDelete(project)}
@@ -405,36 +354,36 @@ export default function AdminProjects() {
               <div className="p-5">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className="mb-1 text-xs font-semibold tracking-wider uppercase text-shama-terra">
+                    <p className="mb-1 text-xs font-semibold tracking-wider uppercase text-[#BD7563]">
                       {project.tagline}
                     </p>
-                    <h3 className="font-bold text-[#264653] text-lg leading-tight line-clamp-2">
+                    <h3 className="text-lg font-bold leading-tight text-black line-clamp-2">
                       {project.title}
                     </h3>
                   </div>
                 </div>
 
-                <p className="mb-4 text-sm text-gray-500 line-clamp-2">
+                <p className="mb-4 text-sm text-black/50 line-clamp-2">
                   {project.description}
                 </p>
 
                 <div className="mb-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin size={14} className="text-shama-green" />
+                  <div className="flex items-center gap-2 text-sm text-black/60">
+                    <MapPin size={14} className="text-[#0F7F40]" />
                     <span className="truncate">{project.location}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar size={14} className="text-shama-green" />
+                  <div className="flex items-center gap-2 text-sm text-black/60">
+                    <Calendar size={14} className="text-[#0F7F40]" />
                     <span>{project.year}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Ruler size={14} className="text-shama-green" />
+                  <div className="flex items-center gap-2 text-sm text-black/60">
+                    <Ruler size={14} className="text-[#0F7F40]" />
                     <span>{project.area}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <span className="text-xs font-medium text-gray-400">
+                <div className="flex items-center justify-between pt-4 border-t border-black/5">
+                  <span className="text-xs font-medium text-black/40">
                     {project.project_type}
                   </span>
                   <button
@@ -442,8 +391,8 @@ export default function AdminProjects() {
                     className={`
                       flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
                       ${project.status === "Completed"
-                        ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                        : "bg-green-100 text-green-700 hover:bg-green-200"}
+                        ? "bg-[#BD7563]/10 text-[#BD7563] hover:bg-[#BD7563]/20"
+                        : "bg-[#0F7F40]/10 text-[#0F7F40] hover:bg-[#0F7F40]/20"}
                     `}
                   >
                     {project.status === "Completed" ? (
@@ -464,15 +413,15 @@ export default function AdminProjects() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-[#264653]">
+            <div className="flex items-center justify-between p-6 border-b border-black/5">
+              <h2 className="text-2xl font-bold text-black">
                 {editingProject ? "Edit Project" : "Add New Project"}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 transition-colors hover:bg-gray-100 rounded-xl"
+                className="p-2 transition-colors hover:bg-[#F5EBE8] rounded-xl"
               >
-                <X size={24} className="text-gray-500" />
+                <X size={24} className="text-black/50" />
               </button>
             </div>
 
@@ -482,15 +431,15 @@ export default function AdminProjects() {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Title */}
                   <div className="md:col-span-2">
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Project Title *
                     </label>
                     <input
                       type="text"
                       name="title"
                       value={formData.title}
-                      onChange={handleTitleChange}
-                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.title ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green transition-all`}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.title ? 'border-red-500' : 'border-black/10'} focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40] transition-all`}
                       placeholder="e.g., The Hub Karen"
                     />
                     {formErrors.title && (
@@ -500,29 +449,9 @@ export default function AdminProjects() {
                     )}
                   </div>
 
-                  {/* Project ID */}
-                  <div>
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
-                      Project ID *
-                    </label>
-                    <input
-                      type="text"
-                      name="id"
-                      value={formData.id}
-                      onChange={handleInputChange}
-                      disabled={editingProject}
-                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.id ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green transition-all ${editingProject ? 'bg-gray-50' : ''}`}
-                      placeholder="e.g., the-hub-karen"
-                    />
-                    {formErrors.id && (
-                      <p className="mt-1 text-sm text-red-500">{formErrors.id}</p>
-                    )}
-                    <p className="mt-1 text-xs text-gray-400">Auto-generated from title, or customize</p>
-                  </div>
-
                   {/* Tagline */}
-                  <div>
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                  <div className="md:col-span-2">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Tagline
                     </label>
                     <input
@@ -530,75 +459,42 @@ export default function AdminProjects() {
                       name="tagline"
                       value={formData.tagline}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 transition-all border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green"
+                      className="w-full px-4 py-3 transition-all border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40]"
                       placeholder="e.g., Landscape Architecture · 2024"
                     />
                   </div>
 
-                  {/* Cover URL */}
+                  {/* Cover Image Upload - NEW! */}
                   <div className="md:col-span-2">
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
-                      Cover Image URL *
-                    </label>
-                    <input
-                      type="text"
-                      name="cover_url"
+                    <ImageUpload
                       value={formData.cover_url}
-                      onChange={handleInputChange}
-                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.cover_url ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green transition-all`}
-                      placeholder="/assets/projects/image.jpg"
+                      onChange={(url) => {
+                        setFormData(prev => ({ ...prev, cover_url: url }));
+                        if (formErrors.cover_url) {
+                          setFormErrors(prev => ({ ...prev, cover_url: null }));
+                        }
+                      }}
+                      label="Cover Image *"
                     />
                     {formErrors.cover_url && (
-                      <p className="mt-1 text-sm text-red-500">{formErrors.cover_url}</p>
+                      <p className="flex items-center gap-1 mt-1 text-sm text-red-500">
+                        <AlertCircle size={14} /> {formErrors.cover_url}
+                      </p>
                     )}
                   </div>
 
-                  {/* Image Gallery */}
+                  {/* Gallery Upload - NEW! */}
                   <div className="md:col-span-2">
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
-                      Image Gallery
-                    </label>
-                    <div className="flex gap-2 mb-3">
-                      <input
-                        type="text"
-                        value={galleryInput}
-                        onChange={(e) => setGalleryInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addGalleryImage())}
-                        className="flex-1 px-4 py-3 transition-all border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green"
-                        placeholder="/assets/projects/image-1.jpg"
-                      />
-                      <button
-                        type="button"
-                        onClick={addGalleryImage}
-                        className="px-4 py-3 font-medium text-gray-700 transition-colors bg-gray-100 rounded-xl hover:bg-gray-200"
-                      >
-                        <Plus size={20} />
-                      </button>
-                    </div>
-                    
-                    {/* Gallery Preview */}
-                    {formData.image_gallery.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {formData.image_gallery.map((img, idx) => (
-                          <div key={idx} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
-                            <ImageIcon size={16} className="text-gray-400" />
-                            <span className="text-sm text-gray-600 truncate max-w-37.5">{img}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeGalleryImage(idx)}
-                              className="p-1 transition-colors rounded hover:bg-red-100"
-                            >
-                              <X size={14} className="text-red-500" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <GalleryUpload
+                      images={formData.image_gallery}
+                      onChange={(urls) => setFormData(prev => ({ ...prev, image_gallery: urls }))}
+                      label="Image Gallery"
+                    />
                   </div>
 
                   {/* Description */}
                   <div className="md:col-span-2">
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Description *
                     </label>
                     <textarea
@@ -606,7 +502,7 @@ export default function AdminProjects() {
                       value={formData.description}
                       onChange={handleInputChange}
                       rows={4}
-                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.description ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green transition-all resize-none`}
+                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.description ? 'border-red-500' : 'border-black/10'} focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40] transition-all resize-none`}
                       placeholder="Describe the project..."
                     />
                     {formErrors.description && (
@@ -616,7 +512,7 @@ export default function AdminProjects() {
 
                   {/* Location */}
                   <div>
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Location *
                     </label>
                     <input
@@ -624,7 +520,7 @@ export default function AdminProjects() {
                       name="location"
                       value={formData.location}
                       onChange={handleInputChange}
-                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.location ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green transition-all`}
+                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.location ? 'border-red-500' : 'border-black/10'} focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40] transition-all`}
                       placeholder="e.g., Karen, Nairobi"
                     />
                     {formErrors.location && (
@@ -634,7 +530,7 @@ export default function AdminProjects() {
 
                   {/* Year */}
                   <div>
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Year *
                     </label>
                     <input
@@ -642,7 +538,7 @@ export default function AdminProjects() {
                       name="year"
                       value={formData.year}
                       onChange={handleInputChange}
-                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.year ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green transition-all`}
+                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.year ? 'border-red-500' : 'border-black/10'} focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40] transition-all`}
                       placeholder="2024"
                     />
                     {formErrors.year && (
@@ -652,14 +548,14 @@ export default function AdminProjects() {
 
                   {/* Project Type */}
                   <div>
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Project Type *
                     </label>
                     <select
                       name="project_type"
                       value={formData.project_type}
                       onChange={handleInputChange}
-                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.project_type ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green transition-all bg-white`}
+                      className={`w-full px-4 py-3 rounded-xl border ${formErrors.project_type ? 'border-red-500' : 'border-black/10'} focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40] transition-all bg-white`}
                     >
                       <option value="">Select type</option>
                       <option value="Residential">Residential</option>
@@ -676,7 +572,7 @@ export default function AdminProjects() {
 
                   {/* Client */}
                   <div>
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Client
                     </label>
                     <input
@@ -684,14 +580,14 @@ export default function AdminProjects() {
                       name="client"
                       value={formData.client}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 transition-all border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green"
+                      className="w-full px-4 py-3 transition-all border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40]"
                       placeholder="e.g., Private Developer"
                     />
                   </div>
 
                   {/* Area */}
                   <div>
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Area
                     </label>
                     <input
@@ -699,21 +595,21 @@ export default function AdminProjects() {
                       name="area"
                       value={formData.area}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 transition-all border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green"
+                      className="w-full px-4 py-3 transition-all border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40]"
                       placeholder="e.g., 4,200 m²"
                     />
                   </div>
 
                   {/* Status */}
                   <div>
-                    <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    <label className="block mb-2 text-sm font-semibold text-black">
                       Status
                     </label>
                     <select
                       name="status"
                       value={formData.status}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 transition-all bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/20 focus:border-shama-green"
+                      className="w-full px-4 py-3 transition-all bg-white border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F7F40]/20 focus:border-[#0F7F40]"
                     >
                       <option value="In Progress">In Progress</option>
                       <option value="Completed">Completed</option>
@@ -724,11 +620,11 @@ export default function AdminProjects() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-100 bg-gray-50">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-black/5 bg-[#F5EBE8]">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-6 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-200 rounded-xl"
+                className="px-6 py-3 font-semibold transition-colors text-black/70 hover:bg-black/5 rounded-xl"
               >
                 Cancel
               </button>
@@ -736,7 +632,7 @@ export default function AdminProjects() {
                 type="submit"
                 form="project-form"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-6 py-3 bg-shama-green text-white font-semibold rounded-xl hover:bg-[#0c6633] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                className="flex items-center gap-2 px-6 py-3 bg-[#0F7F40] text-white font-semibold rounded-xl hover:bg-[#0c6633] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 {isSubmitting ? (
                   <>
@@ -762,16 +658,16 @@ export default function AdminProjects() {
             <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full">
               <Trash2 size={32} className="text-red-600" />
             </div>
-            <h3 className="mb-2 text-xl font-bold text-center text-gray-800">
+            <h3 className="mb-2 text-xl font-bold text-center text-black">
               Delete Project?
             </h3>
-            <p className="mb-6 text-center text-gray-500">
+            <p className="mb-6 text-center text-black/50">
               Are you sure you want to delete <strong>{projectToDelete?.title}</strong>? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 px-6 py-3 font-semibold text-gray-700 transition-colors bg-gray-100 rounded-xl hover:bg-gray-200"
+                className="flex-1 px-6 py-3 font-semibold text-black/70 transition-colors bg-[#F5EBE8] rounded-xl hover:bg-[#F5EBE8]/80"
               >
                 Cancel
               </button>
