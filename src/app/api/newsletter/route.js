@@ -1,33 +1,71 @@
-// src/app/api/newsletter/route.js
-import fs from "fs";
-import path from "path";
+import { client } from '@/sanity/lib/client'
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { email } = await req.json();
+    const body = await request.json()
+    
+    const { name, email, categoryInterest, pageOrigin } = body
 
-    if (!email || !email.includes("@")) {
-      return new Response(JSON.stringify({ error: "Invalid email" }), { status: 400 });
+    // Validate required fields
+    if (!email) {
+      return new Response(
+        JSON.stringify({ error: 'Email is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Path to a local JSON file for testing
-    const filePath = path.join(process.cwd(), "emails.json");
+    // Check if email already exists
+    const existing = await client.fetch(
+      `*[_type == "newsletterSubscriber" && email == $email][0]`,
+      { email }
+    )
 
-    // Read existing emails or create new array
-    let emails = [];
-    if (fs.existsSync(filePath)) {
-      const fileData = fs.readFileSync(filePath, "utf-8");
-      emails = JSON.parse(fileData);
+    if (existing) {
+      // Update existing subscriber if they want to add name or interests
+      if (name || categoryInterest) {
+        const updates = {}
+        if (name && !existing.name) updates.name = name
+        if (categoryInterest) updates.categoryInterest = categoryInterest
+        
+        if (Object.keys(updates).length > 0) {
+          await client
+            .patch(existing._id)
+            .set(updates)
+            .commit()
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Already subscribed', id: existing._id }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Avoid duplicates
-    if (!emails.includes(email)) emails.push(email);
+    // Create new subscriber document in Sanity
+    const doc = {
+      _type: 'newsletterSubscriber',
+      name: name || '',
+      email,
+      categoryInterest: categoryInterest || [],
+      pageOrigin: pageOrigin || 'unknown',
+      status: 'active',
+      subscribedAt: new Date().toISOString(),
+    }
 
-    // Write back to file
-    fs.writeFileSync(filePath, JSON.stringify(emails, null, 2));
+    const result = await client.create(doc)
 
-    return new Response(JSON.stringify({ message: "Email saved successfully" }), { status: 200 });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: "Something went wrong" }), { status: 500 });
+    // Optional: Add to external email service (Brevo, Mailchimp, etc.)
+    // await addToEmailService({ name, email, categoryInterest })
+
+    return new Response(
+      JSON.stringify({ success: true, id: result._id }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    console.error('Newsletter subscription error:', error)
+    return new Response(
+      JSON.stringify({ error: 'Failed to subscribe' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }

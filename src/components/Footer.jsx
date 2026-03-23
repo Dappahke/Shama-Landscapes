@@ -305,7 +305,15 @@ export default function Footer() {
           </div>
           
           <p className="order-3 text-xs md:order-3">
-            Site by <a href="#" className="transition-colors hover:text-shama-green">Dappah Solutions</a>
+            Site by{" "}
+            <a
+              href="https://www.drafika.studio"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-shama-green"
+            >
+              Dappah Solutions
+            </a>
           </p>
         </div>
       </div>

@@ -25,7 +25,7 @@ export default function Navbar() {
     { href: "/approach", label: "Our Approach" },
     { href: "/projects", label: "Portfolio" },
     { href: "/blog", label: "Blog" },
-    { href: "/contact", label: "Contact" },
+    { href: "/contact", label: "Contact Us" },
   ];
 
   const isActive = (href) => {

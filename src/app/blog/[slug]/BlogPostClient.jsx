@@ -1,561 +1,480 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { PortableText } from "@portabletext/react";
-import Image from "next/image";
-import Link from "next/link";
-import imageUrlBuilder from '@sanity/image-url';
-import { client } from "@/sanity/lib/client";
+import { useEffect, useState, useRef } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { PortableText } from '@portabletext/react'
+import { urlFor } from '@/sanity/lib/image'
+import '../blog-styles.css'
 
-const builder = imageUrlBuilder(client);
-
-function urlFor(source) {
-  if (!source?.asset) return null;
-  return builder.image(source);
+// Generate or get session ID
+function getSessionId() {
+  if (typeof window === 'undefined') return null
+  let sessionId = localStorage.getItem('shama_session_id')
+  if (!sessionId) {
+    sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36)
+    localStorage.setItem('shama_session_id', sessionId)
+  }
+  return sessionId
 }
 
-function formatDate(dateString) {
-  if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
-
-function estimateReadTime(content) {
-  if (!content) return 5;
-  const text = JSON.stringify(content);
-  const words = text.split(/\s+/).length;
-  return Math.ceil(words / 200);
-}
-
-// Reading Progress Component
-function ReadingProgress() {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const updateProgress = () => {
-      const scrollTop = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const scrollPercent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-      setProgress(Math.min(scrollPercent, 100));
-    };
-
-    window.addEventListener('scroll', updateProgress, { passive: true });
-    return () => window.removeEventListener('scroll', updateProgress);
-  }, []);
-
-  return (
-    <div className="fixed top-0 left-0 z-50 w-full h-1 bg-transparent">
-      <div 
-        className="h-full transition-all duration-150 bg-linear-to-r from-shama-terra to-shama-blue"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
-  );
-}
-
-// Share Buttons Component
-function ShareButtons({ title, url }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleShare = async (platform) => {
-    const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${url}` : url;
-    const text = encodeURIComponent(title);
-    const encodedUrl = encodeURIComponent(shareUrl);
-
-    const urls = {
-      twitter: `https://twitter.com/intent/tweet?text=${text}&url=${encodedUrl}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-    };
-
-    if (platform === 'copy') {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      return;
-    }
-
-    window.open(urls[platform], '_blank', 'width=600,height=400');
-  };
-
-  const TwitterIcon = ({ className }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-    </svg>
-  );
-
-  const LinkedInIcon = ({ className }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-    </svg>
-  );
-
-  const LinkIcon = ({ className }) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-    </svg>
-  );
-
-  const CheckIcon = ({ className }) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-    </svg>
-  );
-
-  return (
-    <div className="flex flex-col gap-3">
-      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 [writing-mode:vertical-lr] mb-2 hidden lg:block">
-        Share
-      </span>
-      
-      <button
-        onClick={() => handleShare('twitter')}
-        className="p-3 transition-all bg-white border rounded-full shadow-md border-stone-100 text-stone-400 hover:text-shama-blue hover:border-shama-blue/20"
-        aria-label="Share on Twitter"
-      >
-        <TwitterIcon className="w-5 h-5" />
-      </button>
-      
-      <button
-        onClick={() => handleShare('linkedin')}
-        className="p-3 rounded-full bg-white shadow-md border border-stone-100 text-stone-400 hover:text-[#0A66C2] hover:border-[#0A66C2]/20 transition-all"
-        aria-label="Share on LinkedIn"
-      >
-        <LinkedInIcon className="w-5 h-5" />
-      </button>
-      
-      <button
-        onClick={() => handleShare('copy')}
-        className="p-3 transition-all bg-white border rounded-full shadow-md border-stone-100 text-stone-400 hover:text-shama-terra hover:border-shama-terra/20"
-        aria-label={copied ? 'Copied!' : 'Copy link'}
-      >
-        {copied ? <CheckIcon className="w-5 h-5" /> : <LinkIcon className="w-5 h-5" />}
-      </button>
-    </div>
-  );
-}
-
-// Like Button Component
-function LikeButton({ postId }) {
-  const [liked, setLiked] = useState(false);
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const likedPosts = JSON.parse(localStorage.getItem('likedPosts') || '[]');
-    setLiked(likedPosts.includes(postId));
-    setCount(Math.floor(Math.random() * 50) + 10);
-  }, [postId]);
-
-  const handleLike = () => {
-    const likedPosts = JSON.parse(localStorage.getItem('likedPosts') || '[]');
-    
-    if (liked) {
-      setCount(c => c - 1);
-      localStorage.setItem('likedPosts', JSON.stringify(likedPosts.filter(id => id !== postId)));
-    } else {
-      setCount(c => c + 1);
-      localStorage.setItem('likedPosts', JSON.stringify([...likedPosts, postId]));
-    }
-    setLiked(!liked);
-  };
-
-  const HeartIcon = ({ className, filled }) => (
-    <svg className={className} fill={filled ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-    </svg>
-  );
-
-  return (
-    <button
-      onClick={handleLike}
-      className={`group flex items-center gap-3 transition-all ${liked ? 'text-shama-terra' : 'text-stone-400 hover:text-shama-terra'}`}
-    >
-      <div className={`w-12 h-12 rounded-full border flex items-center justify-center transition-all ${
-        liked 
-          ? 'border-shama-terra bg-shama-clay' 
-          : 'border-stone-200 group-hover:border-shama-terra group-hover:bg-shama-clay'
-      }`}>
-        <HeartIcon className="w-5 h-5" filled={liked} />
-      </div>
-      <div className="flex flex-col items-start">
-        <span className="text-xs font-black tracking-widest uppercase">
-          {liked ? 'Appreciated' : 'Appreciate'}
-        </span>
-        <span className="text-[10px] text-stone-400">{count} appreciations</span>
-      </div>
-    </button>
-  );
-}
-
-// Newsletter Form Component
-function NewsletterForm() {
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('idle');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Newsletter signup:', email);
-    setStatus('success');
-    setEmail('');
-    setTimeout(() => setStatus('idle'), 3000);
-  };
-
-  return (
-    <div className="p-6 border bg-stone-50 rounded-2xl border-stone-100">
-      <h4 className="mb-2 font-serif font-bold text-stone-900">Stay Updated</h4>
-      <p className="mb-4 text-sm text-stone-600">Get the latest stories delivered to your inbox.</p>
-      <form className="flex gap-2" onSubmit={handleSubmit}>
-        <input 
-          type="email" 
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="flex-1 px-4 py-2 text-sm bg-white border rounded-lg border-stone-200 focus:outline-none focus:border-shama-blue"
-          required
-        />
-        <button 
-          type="submit"
-          className="px-4 py-2 bg-shama-blue text-white text-sm font-semibold rounded-lg hover:bg-[#2d7ab8] transition-colors"
-        >
-          {status === 'success' ? 'Joined!' : 'Join'}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-// Icons
-const ArrowLeftIcon = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-  </svg>
-);
-
-const ClockIcon = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-
-// PortableText Components
+// Portable Text components
 const ptComponents = {
   types: {
     image: ({ value }) => {
-      const imageUrl = value?.asset ? urlFor(value)?.width(1200)?.url() : null;
-      if (!imageUrl) return null;
-      
+      if (!value?.asset?._ref) return null
       return (
-        <figure className="my-12 md:my-16 group">
-          <div className="relative w-full overflow-hidden rounded-2xl aspect-video bg-stone-100">
-            <Image 
-              src={imageUrl} 
-              alt={value.alt || ""} 
-              fill 
-              className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 900px"
-            />
-          </div>
-          {value.caption && (
-            <figcaption className="mt-4 text-sm italic text-center text-stone-500">
-              {value.caption}
-            </figcaption>
-          )}
+        <figure className="article-image">
+          <Image
+            src={urlFor(value).url()}
+            alt={value.alt || ''}
+            width={800}
+            height={600}
+            className="content-image"
+          />
+          {value.alt && <figcaption>{value.alt}</figcaption>}
         </figure>
-      );
+      )
     },
   },
   marks: {
     link: ({ children, value }) => {
-      const rel = !value.href.startsWith('/') ? 'noreferrer noopener' : undefined;
-      const target = !value.href.startsWith('/') ? '_blank' : undefined;
+      const rel = !value.href.startsWith('/') ? 'noreferrer noopener' : undefined
+      const target = !value.href.startsWith('/') ? '_blank' : undefined
       return (
-        <Link 
-          href={value.href} 
-          rel={rel} 
-          target={target}
-          className="underline transition-colors text-shama-blue hover:text-shama-terra underline-offset-4"
-        >
+        <a href={value.href} rel={rel} target={target} className="article-link">
           {children}
-        </Link>
-      );
+        </a>
+      )
     },
   },
   block: {
-    h1: ({ children }) => (
-      <h1 className="mt-16 mb-6 font-serif text-4xl font-bold leading-tight md:text-5xl text-stone-900">
-        {children}
-      </h1>
-    ),
-    h2: ({ children }) => (
-      <h2 className="mt-12 mb-6 font-serif text-3xl font-bold leading-tight md:text-4xl text-stone-900">
-        {children}
-      </h2>
-    ),
-    h3: ({ children }) => (
-      <h3 className="mt-10 mb-4 font-serif text-2xl font-bold leading-tight text-stone-800">
-        {children}
-      </h3>
-    ),
-    normal: ({ children }) => (
-      <p className="mb-6 text-lg leading-relaxed text-stone-700 md:text-xl">
-        {children}
-      </p>
-    ),
+    h1: ({ children }) => <h1 className="article-h1">{children}</h1>,
+    h2: ({ children }) => <h2 className="article-h2">{children}</h2>,
+    h3: ({ children }) => <h3 className="article-h3">{children}</h3>,
+    h4: ({ children }) => <h4 className="article-h4">{children}</h4>,
     blockquote: ({ children }) => (
-      <blockquote className="relative px-8 py-8 my-12 border-l-4 md:px-12 bg-shama-clay/30 rounded-2xl border-shama-terra">
-        <span className="absolute font-serif text-6xl leading-none top-4 left-4 text-shama-terra/20">"</span>
-        <p className="relative font-serif text-xl italic leading-relaxed md:text-2xl text-stone-800">
-          {children}
-        </p>
-      </blockquote>
+      <blockquote className="article-blockquote">{children}</blockquote>
     ),
+    normal: ({ children }) => <p className="article-paragraph">{children}</p>,
   },
   list: {
-    bullet: ({ children }) => (
-      <ul className="mb-6 ml-6 space-y-2 list-disc marker:text-shama-terra">
-        {children}
-      </ul>
-    ),
-    number: ({ children }) => (
-      <ol className="mb-6 ml-6 space-y-2 list-decimal marker:text-shama-terra marker:font-semibold">
-        {children}
-      </ol>
-    ),
+    bullet: ({ children }) => <ul className="article-list">{children}</ul>,
+    number: ({ children }) => <ol className="article-list numbered">{children}</ol>,
   },
-};
+  listItem: {
+    bullet: ({ children }) => <li className="article-list-item">{children}</li>,
+    number: ({ children }) => <li className="article-list-item">{children}</li>,
+  },
+}
 
-// Main Component
-export default function BlogPostClient({ post }) {
-  const readTime = estimateReadTime(post.body);
-  const formattedDate = formatDate(post.publishedAt);
+export default function BlogPostClient({ post, relatedPosts }) {
+  const [scrollDepth, setScrollDepth] = useState(0)
+  const [timeOnPage, setTimeOnPage] = useState(0)
+  const [leadScore, setLeadScore] = useState('low')
+  
+  // Engagement states
+  const [likes, setLikes] = useState(0)
+  const [hasLiked, setHasLiked] = useState(false)
+  const [comments, setComments] = useState([])
+  const [commentCount, setCommentCount] = useState(0)
+  const [showComments, setShowComments] = useState(false)
+  const [newComment, setNewComment] = useState({ name: '', email: '', content: '' })
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false)
+  const [shareMenuOpen, setShareMenuOpen] = useState(false)
+  
+  const contentRef = useRef(null)
+  const startTime = useRef(Date.now())
+  const sessionId = useRef(getSessionId())
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BlogPosting',
-    headline: post.title,
-    description: post.excerpt,
-    image: post.mainImage?.asset ? urlFor(post.mainImage)?.url() : undefined,
-    datePublished: post.publishedAt,
-    author: post.author ? {
-      '@type': 'Person',
-      name: post.author.name,
-    } : undefined,
-  };
+  // Fetch likes and comments on mount
+  useEffect(() => {
+    fetchEngagement()
+  }, [])
+
+  async function fetchEngagement() {
+    try {
+      // Fetch likes
+      const likesRes = await fetch(`/api/likes?postSlug=${post.slug.current}&sessionId=${sessionId.current}`)
+      const likesData = await likesRes.json()
+      setLikes(likesData.totalLikes || 0)
+      setHasLiked(likesData.hasLiked || false)
+
+      // Fetch comments
+      const commentsRes = await fetch(`/api/comments?postSlug=${post.slug.current}`)
+      const commentsData = await commentsRes.json()
+      setComments(commentsData.comments || [])
+      setCommentCount(commentsData.total || 0)
+    } catch (error) {
+      console.error('Failed to fetch engagement:', error)
+    }
+  }
+
+  // Toggle like
+  async function toggleLike() {
+    try {
+      const action = hasLiked ? 'unlike' : 'like'
+      const res = await fetch('/api/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId: post._id,
+          postSlug: post.slug.current,
+          sessionId: sessionId.current,
+          action,
+        }),
+      })
+      
+      const data = await res.json()
+      if (data.success) {
+        setLikes(data.totalLikes)
+        setHasLiked(data.liked)
+      }
+    } catch (error) {
+      console.error('Failed to toggle like:', error)
+    }
+  }
+
+  // Submit comment
+  async function submitComment(e) {
+    e.preventDefault()
+    if (!newComment.name || !newComment.email || !newComment.content) return
+    
+    setIsSubmittingComment(true)
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId: post._id,
+          authorName: newComment.name,
+          authorEmail: newComment.email,
+          content: newComment.content,
+        }),
+      })
+      
+      const data = await res.json()
+      if (data.success) {
+        setNewComment({ name: '', email: '', content: '' })
+        alert('Comment submitted for moderation. Thank you!')
+      }
+    } catch (error) {
+      console.error('Failed to submit comment:', error)
+    }
+    setIsSubmittingComment(false)
+  }
+
+  // Share functions
+  function shareOn(platform) {
+    const url = encodeURIComponent(window.location.href)
+    const text = encodeURIComponent(post.title)
+    
+    const shareUrls = {
+      twitter: `https://twitter.com/intent/tweet?url=${url}&text=${text}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
+      whatsapp: `https://wa.me/?text=${text}%20${url}`,
+      email: `mailto:?subject=${text}&body=${url}`,
+    }
+    
+    if (platform === 'copy') {
+      navigator.clipboard.writeText(window.location.href)
+      alert('Link copied to clipboard!')
+    } else if (shareUrls[platform]) {
+      window.open(shareUrls[platform], '_blank', 'width=600,height=400')
+    }
+    
+    setShareMenuOpen(false)
+  }
+
+  // Track scroll depth and time
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight
+      const scrollPercent = Math.round((scrollTop / docHeight) * 100)
+      setScrollDepth(Math.max(scrollPercent, scrollDepth))
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [scrollDepth])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const seconds = Math.floor((Date.now() - startTime.current) / 1000)
+      setTimeOnPage(seconds)
+      if (scrollDepth > 75 && seconds > 180) setLeadScore('high')
+      else if (scrollDepth > 50 && seconds > 60) setLeadScore('medium')
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [scrollDepth])
+
+  // Send lead data on unmount
+  useEffect(() => {
+    const sendLeadData = () => {
+      const data = {
+        user: { name: '', email: '' },
+        source: {
+          type: 'blog',
+          postTitle: post.title,
+          postSlug: post.slug.current,
+          category: post.categories?.[0]?.title || '',
+        },
+        behavior: { timeOnPage, scrollDepth, clickedCTA: false },
+        intent: leadScore,
+        createdAt: new Date().toISOString(),
+      }
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon('/api/leads', JSON.stringify(data))
+      }
+    }
+    window.addEventListener('beforeunload', sendLeadData)
+    return () => {
+      window.removeEventListener('beforeunload', sendLeadData)
+      sendLeadData()
+    }
+  }, [post, timeOnPage, scrollDepth, leadScore])
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    })
+  }
 
   return (
-    <>
-      <ReadingProgress />
-      
-      <article className="min-h-screen bg-white">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-
-        <header className="relative min-h-[60vh] md:min-h-[75vh] w-full flex items-end">
-          <div className="absolute inset-0 z-0">
-            {post.mainImage?.asset ? (
-              <Image 
-                src={urlFor(post.mainImage).width(1920).height(1080).url()} 
-                alt={post.mainImage.alt || post.title}
-                fill
-                className="object-cover"
-                priority
-                sizes="100vw"
-              />
-            ) : (
-              <div className="w-full h-full bg-linear-to-br from-shama-clay to-[#E8D5CF]" />
-            )}
-            <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-black/10" />
-          </div>
-
-          <div className="relative z-10 w-full px-6 py-16 md:py-24 md:px-12">
-            <div className="max-w-5xl mx-auto">
-              <nav className="mb-8">
-                <Link 
-                  href="/blog" 
-                  className="inline-flex items-center gap-2 text-sm font-medium transition-colors text-white/80 hover:text-white group"
-                >
-                  <ArrowLeftIcon className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                  Back to Journal
-                </Link>
-              </nav>
-
-              <div className="flex flex-wrap items-center gap-3 mb-6">
-                {post.category && (
-                  <Link
-                    href={`/blog/category/${post.category.slug}`}
-                    className="px-3 py-1 text-xs font-bold tracking-wider text-white uppercase rounded-full bg-shama-terra hover:bg-[#a86553] transition-colors"
-                  >
-                    {post.category.title}
-                  </Link>
+    <article className="blog-post" ref={contentRef}>
+      {/* Hero Section */}
+      <header className="post-hero">
+        <div className="post-hero-image-wrapper">
+          {post.mainImage && (
+            <Image
+              src={urlFor(post.mainImage).url()}
+              alt={post.mainImage.alt || post.title}
+              fill
+              className="post-hero-image"
+              priority
+            />
+          )}
+          <div className="post-hero-overlay" />
+        </div>
+        <div className="post-hero-content">
+          {post.categories?.[0] && (
+            <span className="post-category">{post.categories[0].title}</span>
+          )}
+          <h1 className="post-title">{post.title}</h1>
+          <div className="post-meta">
+            {post.author && (
+              <div className="post-author">
+                {post.author.image && (
+                  <Image
+                    src={urlFor(post.author.image).url()}
+                    alt={post.author.name}
+                    width={40}
+                    height={40}
+                    className="author-avatar"
+                  />
                 )}
-                <div className="flex items-center gap-2 text-sm text-white/70">
-                  <ClockIcon className="w-4 h-4" />
-                  <span>{readTime} min read</span>
-                  <span className="mx-2">•</span>
-                  <time dateTime={post.publishedAt}>{formattedDate}</time>
-                </div>
+                <span>{post.author.name}</span>
               </div>
+            )}
+            <span className="post-date">{formatDate(post.publishedAt)}</span>
+            {post.readTime && <span className="post-readtime">{post.readTime} min read</span>}
+          </div>
+        </div>
+      </header>
 
-              <h1 className="font-serif text-4xl md:text-6xl lg:text-7xl font-bold text-white leading-[1.1] max-w-4xl">
-                {post.title}
-              </h1>
+      {/* Engagement Bar */}
+      <div className="engagement-bar">
+        <div className="engagement-content">
+          <button 
+            className={`engagement-btn like-btn ${hasLiked ? 'liked' : ''}`}
+            onClick={toggleLike}
+            title={hasLiked ? 'Unlike' : 'Like'}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={hasLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+            <span>{likes} {likes === 1 ? 'Like' : 'Likes'}</span>
+          </button>
+          
+          <button 
+            className="engagement-btn comment-btn"
+            onClick={() => setShowComments(!showComments)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+            </svg>
+            <span>{commentCount} {commentCount === 1 ? 'Comment' : 'Comments'}</span>
+          </button>
 
-              {post.excerpt && (
-                <p className="max-w-2xl mt-6 text-lg leading-relaxed md:text-xl text-white/80">
-                  {post.excerpt}
-                </p>
+          <div className="share-wrapper">
+            <button 
+              className="engagement-btn share-btn"
+              onClick={() => setShareMenuOpen(!shareMenuOpen)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
+              <span>Share</span>
+            </button>
+            
+            {shareMenuOpen && (
+              <div className="share-menu">
+                <button onClick={() => shareOn('twitter')}>Twitter</button>
+                <button onClick={() => shareOn('facebook')}>Facebook</button>
+                <button onClick={() => shareOn('linkedin')}>LinkedIn</button>
+                <button onClick={() => shareOn('whatsapp')}>WhatsApp</button>
+                <button onClick={() => shareOn('email')}>Email</button>
+                <button onClick={() => shareOn('copy')}>Copy Link</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Article Content */}
+      <div className="post-content-wrapper">
+        <div className="post-content">
+          {post.excerpt && <p className="post-excerpt">{post.excerpt}</p>}
+          
+          {post.body && (
+            <div className="article-body">
+              <PortableText value={post.body} components={ptComponents} />
+            </div>
+          )}
+
+          {/* Mid-Article CTA */}
+          {post.midArticleCTA?.enabled && (
+            <div className="mid-article-cta">
+              <p>{post.midArticleCTA.text}</p>
+              <Link href={post.midArticleCTA.link} className="cta-link">
+                Start a similar project
+              </Link>
+            </div>
+          )}
+
+          {/* End CTA */}
+          {post.endCTA?.enabled && (
+            <div className="end-article-cta">
+              <h3>{post.endCTA.text}</h3>
+              <Link href={post.endCTA.link} className="cta-button">
+                Let&apos;s design your space
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Comments Section */}
+      {showComments && (
+        <section className="comments-section">
+          <div className="comments-content">
+            <h2>Comments ({commentCount})</h2>
+            
+            {/* Comment Form */}
+            <form onSubmit={submitComment} className="comment-form">
+              <h3>Leave a comment</h3>
+              <div className="form-row">
+                <input
+                  type="text"
+                  placeholder="Your name"
+                  value={newComment.name}
+                  onChange={(e) => setNewComment({...newComment, name: e.target.value})}
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Your email"
+                  value={newComment.email}
+                  onChange={(e) => setNewComment({...newComment, email: e.target.value})}
+                  required
+                />
+              </div>
+              <textarea
+                placeholder="Share your thoughts..."
+                rows={4}
+                value={newComment.content}
+                onChange={(e) => setNewComment({...newComment, content: e.target.value})}
+                required
+              />
+              <button type="submit" disabled={isSubmittingComment}>
+                {isSubmittingComment ? 'Submitting...' : 'Submit Comment'}
+              </button>
+            </form>
+
+            {/* Comments List */}
+            <div className="comments-list">
+              {comments.length === 0 ? (
+                <p className="no-comments">No comments yet. Be the first to share your thoughts!</p>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment._id} className="comment-thread">
+                    <div className="comment">
+                      <div className="comment-header">
+                        <strong>{comment.authorName}</strong>
+                        <span>{formatDate(comment.createdAt)}</span>
+                      </div>
+                      <p>{comment.content}</p>
+                    </div>
+                    {comment.replies?.map((reply) => (
+                      <div key={reply._id} className="comment reply">
+                        <div className="comment-header">
+                          <strong>{reply.authorName}</strong>
+                          <span>{formatDate(reply.createdAt)}</span>
+                        </div>
+                        <p>{reply.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                ))
               )}
             </div>
           </div>
-        </header>
+        </section>
+      )}
 
-        <div className="px-6 py-16 mx-auto max-w-7xl md:py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-[80px_1fr_320px] gap-12 lg:gap-16">
-            
-            <aside className="flex-col items-center hidden lg:flex">
-              <div className="sticky top-32">
-                <ShareButtons title={post.title} url={`/blog/${post.slug}`} />
-              </div>
-            </aside>
-
-            <main className="max-w-3xl">
-              <div className="flex gap-4 pb-8 mb-8 border-b lg:hidden border-stone-100">
-                <ShareButtons title={post.title} url={`/blog/${post.slug}`} />
-              </div>
-
-              <div className="prose prose-lg prose-stone max-w-none">
-                {post.body ? (
-                  <PortableText 
-                    value={post.body} 
-                    components={ptComponents}
-                  />
-                ) : (
-                  <p className="italic text-stone-500">No content available.</p>
-                )}
-              </div>
-
-              <div className="flex flex-col items-start justify-between gap-6 py-10 mt-16 sm:flex-row sm:items-center border-y border-stone-100">
-                <LikeButton postId={post._id} />
-                
-                <button className="px-6 py-3 text-sm font-semibold text-white transition-colors rounded-full bg-stone-900 hover:bg-stone-800">
-                  Leave a comment
-                </button>
-              </div>
-
-              {post.author && (
-                <div className="p-8 mt-16 border shadow-sm md:p-10 bg-linear-to-br from-shama-clay to-white rounded-3xl border-stone-100">
-                  <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-start md:text-left">
-                    <div className="relative w-20 h-20 overflow-hidden rounded-full shadow-lg md:w-24 md:h-24 ring-4 ring-white shrink-0">
-                      {post.author.image?.url ? (
-                        <Image 
-                          src={post.author.image.url} 
-                          alt={post.author.name}
+      {/* Related Posts */}
+      {relatedPosts?.length > 0 && (
+        <section className="related-posts">
+          <div className="related-content">
+            <h2>Related Articles</h2>
+            <div className="related-grid">
+              {relatedPosts.map((relatedPost) => (
+                <article key={relatedPost._id} className="related-card">
+                  <Link href={`/blog/${relatedPost.slug.current}`}>
+                    <div className="related-image-wrapper">
+                      {relatedPost.mainImage && (
+                        <Image
+                          src={urlFor(relatedPost.mainImage).url()}
+                          alt={relatedPost.mainImage.alt || relatedPost.title}
                           fill
-                          className="object-cover"
+                          className="related-image"
                         />
-                      ) : (
-                        <div className="flex items-center justify-center w-full h-full font-serif text-2xl text-white bg-shama-terra">
-                          {post.author.name?.[0] || 'A'}
-                        </div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex flex-col gap-2 mb-3 md:flex-row md:items-center">
-                        <h3 className="font-serif text-xl font-bold text-stone-900">
-                          {post.author.name}
-                        </h3>
-                        <span className="hidden md:inline text-stone-300">•</span>
-                        <span className="text-sm text-stone-500">Author</span>
-                      </div>
-                      {post.author.bio && (
-                        <div className="text-sm leading-relaxed text-stone-600 md:text-base">
-                          <PortableText value={post.author.bio} />
-                        </div>
-                      )}
-                      {post.author.slug && (
-                        <Link 
-                          href={`/authors/${post.author.slug}`}
-                          className="inline-block mt-4 text-sm font-semibold transition-colors text-shama-blue hover:text-shama-terra"
-                        >
-                          View all posts →
-                        </Link>
-                      )}
+                    <div className="related-card-content">
+                      <h3>{relatedPost.title}</h3>
+                      {relatedPost.readTime && <span>{relatedPost.readTime} min read</span>}
                     </div>
-                  </div>
-                </div>
-              )}
-            </main>
-
-            <aside className="space-y-8 lg:space-y-12">
-              <div className="relative p-8 overflow-hidden text-white bg-stone-900 rounded-3xl">
-                <div className="absolute top-0 right-0 w-32 h-32 -mt-16 -mr-16 rounded-full bg-shama-blue/20 blur-3xl" />
-                <div className="relative z-10">
-                  <h3 className="mb-3 font-serif text-2xl font-bold">Design Inquiries</h3>
-                  <p className="mb-6 text-sm leading-relaxed text-stone-400">
-                    Interested in creating ecological harmony in your space? Let&apos;s discuss your vision.
-                  </p>
-                  <Link 
-                    href="/contact" 
-                    className="inline-flex items-center gap-2 text-sm font-bold tracking-wider uppercase transition-colors text-shama-blue hover:text-white group"
-                  >
-                    Start a Project
-                    <span className="transition-transform group-hover:translate-x-1">→</span>
                   </Link>
-                </div>
-              </div>
-
-              {post.relatedPosts?.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400 mb-6">
-                    Related Stories
-                  </h3>
-                  <div className="space-y-8">
-                    {post.relatedPosts.map((rel) => (
-                      <article key={rel.slug}>
-                        <Link 
-                          href={`/blog/${rel.slug}`}
-                          className="block group"
-                        >
-                          <div className="relative mb-4 overflow-hidden aspect-4/3 rounded-2xl bg-stone-100">
-                            {rel.mainImage?.asset ? (
-                              <Image 
-                                src={urlFor(rel.mainImage).width(400).height(300).url()} 
-                                alt={rel.title}
-                                fill
-                                className="object-cover transition-all duration-500 grayscale group-hover:grayscale-0 group-hover:scale-105"
-                                sizes="320px"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-stone-200" />
-                            )}
-                          </div>
-                          <time className="text-xs tracking-wider uppercase text-stone-400">
-                            {formatDate(rel.publishedAt)}
-                          </time>
-                          <h4 className="mt-2 font-serif font-bold transition-colors text-stone-900 group-hover:text-shama-blue line-clamp-2">
-                            {rel.title}
-                          </h4>
-                          {rel.excerpt && (
-                            <p className="mt-2 text-sm text-stone-500 line-clamp-2">
-                              {rel.excerpt}
-                            </p>
-                          )}
-                        </Link>
-                      </article>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <NewsletterForm />
-            </aside>
+                </article>
+              ))}
+            </div>
           </div>
+        </section>
+      )}
+
+      {/* Debug */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="lead-debug">
+          Time: {timeOnPage}s | Scroll: {scrollDepth}% | Score: {leadScore}
         </div>
-      </article>
-    </>
-  );
+      )}
+    </article>
+  )
 }

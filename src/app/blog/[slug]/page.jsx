@@ -1,134 +1,116 @@
-import { client } from "@/sanity/lib/client";
-import { PortableText } from "@portabletext/react";
-import Image from "next/image";
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import imageUrlBuilder from '@sanity/image-url';
-import BlogPostClient from "./BlogPostClient";
+import { client } from '@/sanity/lib/client'
+import { urlFor } from '@/sanity/lib/image'
+import BlogPostClient from './BlogPostClient'
+import { notFound } from 'next/navigation'
 
-const builder = imageUrlBuilder(client);
-
-function urlFor(source) {
-  if (!source?.asset) return null;
-  return builder.image(source);
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
-
-function estimateReadTime(content) {
-  if (!content) return 5;
-  const text = JSON.stringify(content);
-  const words = text.split(/\s+/).length;
-  return Math.ceil(words / 200);
-}
-
-async function getPost(slug) {
-  if (!slug) return null;
+// Generate static params for all posts
+export async function generateStaticParams() {
+  const query = `*[_type == "post" && defined(slug.current)] {
+    "slug": slug.current
+  }`
   
-  try {
-    const query = `*[_type == "post" && slug.current == $slug][0] {
+  const posts = await client.fetch(query)
+  
+  return posts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+
+// Fetch single post by slug
+async function getPost(slug) {
+  const query = `*[_type == "post" && slug.current == $slug][0] {
+    _id,
+    title,
+    slug,
+    excerpt,
+    mainImage,
+    publishedAt,
+    readTime,
+    author->{
+      name,
+      slug,
+      image,
+      bio
+    },
+    categories[]->{
+      title,
+      slug
+    },
+    body,
+    midArticleCTA,
+    endCTA,
+    relatedPosts[]->{
       _id,
       title,
-      publishedAt,
+      slug,
       excerpt,
-      body,
-      "slug": slug.current,
-      mainImage { 
-        asset->{ _id, url, metadata { lqip, dimensions } },
-        alt
-      },
-      "category": categories[0]->{ title, "slug": slug.current },
-      "author": author->{ 
-        name, 
-        bio, 
-        "image": image.asset->{ url, metadata { lqip, dimensions } },
-        "slug": slug.current 
-      },
-      "relatedPosts": *[_type == "post" 
-        && references(^.categories[0]._ref) 
-        && slug.current != $slug
-        && defined(slug.current)
-      ] | order(publishedAt desc) [0...3] {
-        title, 
-        "slug": slug.current, 
-        publishedAt,
-        excerpt,
-        mainImage { 
-          asset->{ url, metadata { lqip } } 
-        }
-      }
-    }`;
-    
-    return await client.fetch(query, { slug }, { 
-      next: { revalidate: 3600 }
-    });
-  } catch (error) {
-    console.error('Failed to fetch post:', error);
-    return null;
-  }
+      mainImage,
+      readTime,
+      author->{name}
+    },
+    seo
+  }`
+  
+  return client.fetch(query, { slug }, { next: { revalidate: 60 } })
+}
+
+// Fetch related posts by category if not manually set
+async function getRelatedPostsByCategory(categorySlug, currentPostId, limit = 3) {
+  const query = `*[_type == "post" && 
+    _id != $currentPostId && 
+    categories[]->slug.current == $categorySlug
+  ] | order(priority asc, publishedAt desc) [0...$limit] {
+    _id,
+    title,
+    slug,
+    excerpt,
+    mainImage,
+    readTime,
+    author->{name}
+  }`
+  
+  return client.fetch(query, { categorySlug, currentPostId, limit })
 }
 
 export async function generateMetadata({ params }) {
-  const resolvedParams = await params;
-  const slug = resolvedParams?.slug;
-  
-  if (!slug) {
-    return {
-      title: 'Post Not Found | Blog',
-      description: 'The requested blog post could not be found.'
-    };
-  }
-  
-  const post = await getPost(slug);
+  const { slug } = await params
+  const post = await getPost(slug)
   
   if (!post) {
     return {
-      title: 'Post Not Found | Blog',
-      description: 'The requested blog post could not be found.'
-    };
-  }
-
-  const imageUrl = post.mainImage?.asset ? urlFor(post.mainImage)?.width(1200)?.url() : null;
-
-  return {
-    title: `${post.title} | Rooted by Shama`,
-    description: post.excerpt || `Read ${post.title} on Rooted by Shama`,
-    authors: post.author ? [{ name: post.author.name }] : undefined,
-    openGraph: {
-      title: post.title,
-      description: post.excerpt,
-      type: 'article',
-      publishedTime: post.publishedAt,
-      images: imageUrl ? [imageUrl] : undefined,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: post.title,
-      description: post.excerpt,
-      images: imageUrl ? [imageUrl] : undefined,
+      title: 'Post Not Found | Shama Landscape Architects',
     }
-  };
+  }
+  
+  return {
+    title: post.seo?.metaTitle || `${post.title} | Shama Landscape Architects Blog`,
+    description: post.seo?.metaDescription || post.excerpt,
+  }
 }
 
 export default async function BlogPostPage({ params }) {
-  const resolvedParams = await params;
-  const slug = resolvedParams?.slug;
+  const { slug } = await params
+  const post = await getPost(slug)
   
-  if (!slug) {
-    notFound();
+  if (!post) {
+    notFound()
   }
   
-  const post = await getPost(slug);
+  // Get related posts (manual or auto)
+  let relatedPosts = post.relatedPosts || []
   
-  if (!post) notFound();
-
-  // Pass all data to client component
-  return <BlogPostClient post={post} />;
+  if (relatedPosts.length === 0 && post.categories?.[0]) {
+    relatedPosts = await getRelatedPostsByCategory(
+      post.categories[0].slug.current,
+      post._id,
+      3
+    )
+  }
+  
+  return (
+    <BlogPostClient 
+      post={post}
+      relatedPosts={relatedPosts}
+    />
+  )
 }
