@@ -106,7 +106,7 @@ export const metadata = {
     },
   },
   verification: {
-    google: "u3weNNY3yFxZORt281uC67bXtFElnBjujlAmKeg-lBA",
+    google: "s1hmnEnZDlU_2uOnGR6IBmI5mLcGT7N2cXizGYuhWiM",
   },
   other: {
     "msapplication-TileColor": "#2A9D8F",
