@@ -57,7 +57,7 @@ At Shama Landscape Architects, we believe every space tells a story of ecologica
 
 ${post.excerpt}
 
-Discover the full design narrative here: https://shama.co.ke/blog/${post.slug}
+Discover the full design narrative here: https://shamalandscapes.com/blog/${post.slug}
 
 Warmly,
 The Shama Team`;
