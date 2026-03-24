@@ -1,108 +1,71 @@
 import { writeClient } from '@/sanity/lib/client'
-import { headers } from 'next/headers'
 
-// Get comments for a post
 export async function GET(request) {
+  const { searchParams } = new URL(request.url)
+  const postSlug = searchParams.get('postSlug')
+
+  if (!postSlug) {
+    return Response.json({ error: 'Missing postSlug' }, { status: 400 })
+  }
+
   try {
-    const { searchParams } = new URL(request.url)
-    const postSlug = searchParams.get('postSlug')
-    
-    if (!postSlug) {
-      return new Response(
-        JSON.stringify({ error: 'Post slug required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Fetch approved comments with author info
-    const query = `*[_type == "comment" && post->slug.current == $postSlug && status == "approved"] | order(createdAt desc) {
-      _id,
-      authorName,
-      content,
-      createdAt,
-      parentComment->{_id, authorName}
-    }`
-    
-    const comments = await writeClient.fetch(query, { postSlug })
-    
-    // Organize into threads (top-level and replies)
-    const threads = comments.reduce((acc, comment) => {
-      if (!comment.parentComment) {
-        acc.topLevel.push({...comment, replies: []})
-      } else {
-        const parent = acc.topLevel.find(t => t._id === comment.parentComment._id)
-        if (parent) {
-          parent.replies.push(comment)
-        }
-      }
-      return acc
-    }, { topLevel: [] })
-
-    return new Response(
-      JSON.stringify({ comments: threads.topLevel, total: comments.length }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    const { client } = await import('@/sanity/lib/client')
+    const comments = await client.fetch(
+      `*[_type == "comment" && postSlug == $postSlug && approved == true] | order(createdAt desc)`,
+      { postSlug }
     )
+
+    return Response.json({
+      comments,
+      total: comments.length,
+    })
   } catch (error) {
-    console.error('Get comments error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Failed to fetch comments' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
+    console.error('Error fetching comments:', error)
+    return Response.json({ error: 'Failed to fetch comments' }, { status: 500 })
   }
 }
 
-// Create new comment
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { postId, authorName, authorEmail, content, parentCommentId } = body
-    
-    // Validate required fields
+    const { postId, authorName, authorEmail, content } = body
+
     if (!postId || !authorName || !authorEmail || !content) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
+      return Response.json({ 
+        error: 'Missing required fields',
+      }, { status: 400 })
     }
 
-    // Get IP and user agent for spam detection
-    const headersList = headers()
-    const ip = headersList.get('x-forwarded-for') || 'unknown'
-    const userAgent = headersList.get('user-agent') || 'unknown'
+    // Get post slug from postId
+    const { client } = await import('@/sanity/lib/client')
+    const post = await client.fetch(`*[_id == $postId][0]{slug}`, { postId })
+    if (!post) {
+      return Response.json({ error: 'Post not found' }, { status: 404 })
+    }
 
-    // Create comment document
-    const commentDoc = {
+    // Create comment - USE WRITE CLIENT
+    const comment = await writeClient.create({
       _type: 'comment',
-      post: { _type: 'reference', _ref: postId },
+      postId,
+      postSlug: post.slug.current,
       authorName,
       authorEmail,
       content,
-      status: 'pending', // Requires moderation
+      approved: false,
       createdAt: new Date().toISOString(),
-      ipAddress: ip,
-      userAgent: userAgent,
-    }
+    })
 
-    // Add parent comment reference if it's a reply
-    if (parentCommentId) {
-      commentDoc.parentComment = { _type: 'reference', _ref: parentCommentId }
-    }
-
-    const result = await writeClient.create(commentDoc)
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        id: result._id,
-        message: 'Comment submitted for moderation' 
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    return Response.json({ 
+      success: true, 
+      comment: {
+        _id: comment._id,
+        authorName: comment.authorName,
+        content: comment.content,
+        createdAt: comment.createdAt,
+      }
+    })
   } catch (error) {
-    console.error('Create comment error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Failed to submit comment' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
+    console.error('Error creating comment:', error)
+    return Response.json({ error: 'Internal server error', details: error.message }, { status: 500 })
   }
 }

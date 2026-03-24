@@ -1,71 +1,38 @@
-import { client } from '@/sanity/lib/client'
+import { writeClient } from '@/sanity/lib/client'
 
 export async function POST(request) {
   try {
     const body = await request.json()
-    
-    const { name, email, categoryInterest, pageOrigin } = body
+    const { name, email, pageOrigin } = body
 
-    // Validate required fields
     if (!email) {
-      return new Response(
-        JSON.stringify({ error: 'Email is required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
+      return Response.json({ error: 'Email is required' }, { status: 400 })
     }
 
-    // Check if email already exists
+    // Check if already subscribed - use read client
+    const { client } = await import('@/sanity/lib/client')
     const existing = await client.fetch(
-      `*[_type == "newsletterSubscriber" && email == $email][0]`,
+      `*[_type == "newsletter" && email == $email][0]`,
       { email }
     )
 
     if (existing) {
-      // Update existing subscriber if they want to add name or interests
-      if (name || categoryInterest) {
-        const updates = {}
-        if (name && !existing.name) updates.name = name
-        if (categoryInterest) updates.categoryInterest = categoryInterest
-        
-        if (Object.keys(updates).length > 0) {
-          await client
-            .patch(existing._id)
-            .set(updates)
-            .commit()
-        }
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, message: 'Already subscribed', id: existing._id }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      return Response.json({ success: true, message: 'Already subscribed' })
     }
 
-    // Create new subscriber document in Sanity
-    const doc = {
-      _type: 'newsletterSubscriber',
+    // Create subscription - USE WRITE CLIENT
+    await writeClient.create({
+      _type: 'newsletter',
       name: name || '',
       email,
-      categoryInterest: categoryInterest || [],
-      pageOrigin: pageOrigin || 'unknown',
-      status: 'active',
+      pageOrigin: pageOrigin || 'website',
       subscribedAt: new Date().toISOString(),
-    }
+      status: 'active',
+    })
 
-    const result = await client.create(doc)
-
-    // Optional: Add to external email service (Brevo, Mailchimp, etc.)
-    // await addToEmailService({ name, email, categoryInterest })
-
-    return new Response(
-      JSON.stringify({ success: true, id: result._id }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    return Response.json({ success: true, message: 'Subscribed successfully' })
   } catch (error) {
-    console.error('Newsletter subscription error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Failed to subscribe' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
+    console.error('Error in newsletter API:', error)
+    return Response.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

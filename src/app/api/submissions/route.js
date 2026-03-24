@@ -10,52 +10,31 @@ export async function POST(request) {
     const message = formData.get('message')
     const attachment = formData.get('attachment')
 
-    // Validate required fields
     if (!name || !email || !submissionType || !message) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
+      return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Create submission document in Sanity
-    const doc = {
+    // Create submission - USE WRITE CLIENT
+    const submission = {
       _type: 'submission',
       name,
       email,
       submissionType,
       message,
-      status: 'new',
-      submittedAt: new Date().toISOString(),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
     }
 
-    // Handle file attachment if present
     if (attachment && attachment.size > 0) {
-      // Upload file to Sanity using write client
-      const asset = await writeClient.assets.upload('file', attachment, {
-        filename: attachment.name,
-      })
-      doc.attachment = {
-        _type: 'file',
-        asset: {
-          _type: 'reference',
-          _ref: asset._id,
-        },
-      }
+      submission.hasAttachment = true
+      submission.attachmentName = attachment.name
     }
 
-    // Create document in Sanity using write client
-    const result = await writeClient.create(doc)
+    await writeClient.create(submission)
 
-    return new Response(
-      JSON.stringify({ success: true, id: result._id }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    return Response.json({ success: true, message: 'Submission received' })
   } catch (error) {
-    console.error('Submission error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Failed to submit' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
+    console.error('Error in submissions API:', error)
+    return Response.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

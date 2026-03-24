@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://shamalandscapes.co.ke
+Host: https://shamalandscapes.com
 
 # Sitemaps
-Sitemap: https://shamalandscapes.co.ke/sitemap.xml
+Sitemap: https://shamalandscapes.com/sitemap.xml
