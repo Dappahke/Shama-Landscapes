@@ -146,17 +146,17 @@ export default function ImageUpload({
           type="button"
           onClick={triggerUpload}
           disabled={uploading}
-          className="w-full transition-all border-2 border-dashed rounded-xl aspect-video bg-[#F5EBE8] hover:border-[#0F7F40] hover:bg-[#0F7F40]/5 flex flex-col items-center justify-center gap-3 disabled:opacity-50 border-black/20"
+          className="w-full transition-all border-2 border-dashed rounded-xl aspect-video bg-shama-clay hover:border-shama-green hover:bg-shama-green/5 flex flex-col items-center justify-center gap-3 disabled:opacity-50 border-black/20"
         >
           {uploading ? (
             <>
-              <Loader2 size={32} className="text-[#0F7F40] animate-spin" />
+              <Loader2 size={32} className="text-shama-green animate-spin" />
               <span className="text-sm text-black/60">Uploading...</span>
             </>
           ) : (
             <>
               <div className="p-3 bg-white rounded-full shadow-sm">
-                <Upload size={24} className="text-[#0F7F40]" />
+                <Upload size={24} className="text-shama-green" />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-black">Click to upload</p>

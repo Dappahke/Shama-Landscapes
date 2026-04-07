@@ -1,15 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  MessageCircle, X, Send, HeadphonesIcon, Paperclip, FileText, Image as ImageIcon, X as XIcon, Download
+  MessageCircle, X, Send, HeadphonesIcon, Paperclip, 
+  FileText, Download, Loader2, WifiOff, AlertCircle, 
+  CheckCheck, ChevronDown, Smile, Phone, Mail, Share2
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/lib/supabaseClient";
-import { format } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
+
+// Constants
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const TYPING_TIMEOUT = 3000;
+const RECONNECT_INTERVAL = 5000;
+const SUMMARY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 export default function LiveChat() {
+  // State management
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState("form");
   const [visitorId, setVisitorId] = useState(null);
@@ -20,159 +30,463 @@ export default function LiveChat() {
   const [visitorInfo, setVisitorInfo] = useState({ name: "", email: "", phone: "" });
   const [attachments, setAttachments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState("connecting");
+  const [failedMessages, setFailedMessages] = useState(new Set());
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [summarySent, setSummarySent] = useState(false);
 
+  // Refs
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const inactivityTimeoutRef = useRef(null);
+  const channelRef = useRef(null);
+  const visibilityRef = useRef(true);
+  const processedMessageIds = useRef(new Set());
 
+  // Colors from Shama brand
   const colors = {
     clay: "#F5EBE8",
-    blue: "#3596D5",
     green: "#0F7F40",
+    terra: "#BD7563",
+    blue: "#3596D5",
+    dark: "#1a1a1a",
+    white: "#ffffff"
   };
 
-  // 🔔 Request notification permission once
+  // Initialize notification permission
   useEffect(() => {
-    if (typeof window !== "undefined" && Notification.permission !== "granted") {
+    if (typeof window !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission();
+    }
+    
+    const handleVisibility = () => {
+      visibilityRef.current = !document.hidden;
+      if (!document.hidden) setUnreadCount(0);
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  // Network status monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log("Connection restored");
+      setIsOnline(true);
+      setConnectionStatus("connecting");
+      if (failedMessages.size > 0) {
+        failedMessages.forEach(tempId => {
+          const failedMsg = messages.find(m => m.temp_id === tempId);
+          if (failedMsg) retryMessage(failedMsg);
+        });
+      }
+    };
+    
+    const handleOffline = () => {
+      console.log("Connection lost");
+      setIsOnline(false);
+      setConnectionStatus("disconnected");
+    };
+    
+    setIsOnline(navigator.onLine);
+    
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [failedMessages, messages]);
+
+  // Play notification sound
+  const playSound = useCallback(() => {
+    try {
+      const audio = new Audio("https://actions.google.com/sounds/v1/notifications/notification_simple.mp3");
+      audio.volume = 0.3;
+      audio.play().catch(() => {});
+    } catch (e) {}
+  }, []);
+
+  // Check for existing visitor
+  const checkExistingVisitor = useCallback(async (email, phone) => {
+    if (!email && !phone) return null;
+    
+    try {
+      let query = supabase
+        .from("chat_conversations")
+        .select("visitor_id, visitor_name, visitor_email, visitor_phone")
+        .order("created_at", { ascending: false });
+        
+      if (email && phone) {
+        query = query.or(`visitor_email.eq.${email},visitor_phone.eq.${phone}`);
+      } else if (email) {
+        query = query.eq("visitor_email", email);
+      } else if (phone) {
+        query = query.eq("visitor_phone", phone);
+      }
+      
+      const { data, error } = await query.limit(1).maybeSingle();
+      if (error) throw error;
+      
+      return data || null;
+    } catch (err) {
+      console.error("Error checking existing visitor:", err);
+      return null;
     }
   }, []);
 
-  // 🔊 Play sound
-  const playSound = () => {
-    const audio = new Audio("/notification.mp3");
-    audio.play().catch(() => {});
-  };
-
-  // Check for existing visitor
-  const checkExistingVisitor = async (email, phone) => {
-    if (!email && !phone) return null;
-    try {
-      let query = supabase.from("chat_conversations").select("*").order("created_at", { ascending: false });
-      if (email && phone) query = query.or(`visitor_email.eq.${email},visitor_phone.eq.${phone}`);
-      else if (email) query = query.eq("visitor_email", email);
-      else if (phone) query = query.eq("visitor_phone", phone);
-      
-      const { data } = await query.limit(1).maybeSingle();
-      return data ? { visitor_id: data.visitor_id, name: data.visitor_name, email: data.visitor_email, phone: data.visitor_phone } : null;
-    } catch (err) { return null; }
-  };
-
+  // Initialize visitor
   useEffect(() => {
     const init = async () => {
-      let id = localStorage.getItem("chat_visitor_id") || uuidv4();
+      let id = localStorage.getItem("chat_visitor_id");
       const savedInfo = localStorage.getItem("chat_visitor_info");
       const activeConv = localStorage.getItem("active_conv_id");
-
-      if (savedInfo) {
-        const parsed = JSON.parse(savedInfo);
-        const existing = await checkExistingVisitor(parsed.email, parsed.phone);
-        if (existing) {
-          id = existing.visitor_id;
-          setVisitorInfo(existing);
-        } else {
-          setVisitorInfo(parsed);
-        }
+      
+      if (!id) {
+        id = uuidv4();
+        localStorage.setItem("chat_visitor_id", id);
       }
       
       setVisitorId(id);
-      localStorage.setItem("chat_visitor_id", id);
-
+      
+      if (savedInfo) {
+        try {
+          const parsed = JSON.parse(savedInfo);
+          const existing = await checkExistingVisitor(parsed.email, parsed.phone);
+          
+          if (existing) {
+            setVisitorInfo(existing);
+            localStorage.setItem("chat_visitor_id", existing.visitor_id);
+          } else {
+            setVisitorInfo(parsed);
+          }
+        } catch (e) {
+          console.error("Error parsing saved info:", e);
+        }
+      }
+      
       if (activeConv && savedInfo) {
         setConversationId(activeConv);
         setStep("chatting");
         fetchMessages(activeConv);
       }
     };
+    
     init();
+  }, [checkExistingVisitor]);
+
+  // Fetch message history
+  const fetchMessages = useCallback(async (id) => {
+    setIsLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("conversation_id", id)
+        .order("created_at", { ascending: true })
+        .limit(100);
+        
+      if (error) throw error;
+      if (data) {
+        setMessages(data);
+        processedMessageIds.current = new Set(data.map(m => m.id));
+      }
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
   }, []);
 
-  const fetchMessages = async (id) => {
-    const { data } = await supabase.from("chat_messages").select("*").eq("conversation_id", id).order("created_at", { ascending: true });
-    if (data) setMessages(data);
-  };
+  // Send chat summary to company WhatsApp
+  const sendChatSummary = useCallback(async (trigger = 'manual') => {
+    if (!conversationId || summarySent) return;
+    
+    try {
+      console.log(`Sending chat summary [${trigger}]...`);
+      
+      const response = await fetch('/api/send-chat-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          trigger: trigger
+        }),
+      });
 
-  // 🔥 Realtime Messages + Notifications
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      console.log('Chat summary sent successfully to 254781109052');
+      setSummarySent(true);
+      
+    } catch (err) {
+      console.error('Failed to send chat summary:', err);
+    }
+  }, [conversationId, summarySent]);
+
+  // Inactivity timeout - send summary after 30 minutes
+  useEffect(() => {
+    if (!conversationId || step !== "chatting") return;
+    
+    const resetInactivityTimeout = () => {
+      if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
+      
+      inactivityTimeoutRef.current = setTimeout(() => {
+        console.log("30min timeout - sending summary");
+        sendChatSummary('timeout_30min');
+        // Mark as closed but keep UI open for user to see
+        supabase.from("chat_conversations")
+          .update({ status: "timeout", last_message_at: new Date().toISOString() })
+          .eq("id", conversationId);
+      }, SUMMARY_TIMEOUT);
+    };
+    
+    // Reset on new messages or typing
+    resetInactivityTimeout();
+    
+    return () => {
+      if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
+    };
+  }, [conversationId, step, messages.length, sendChatSummary]);
+
+  // Real-time subscription
   useEffect(() => {
     if (!conversationId) return;
     
-    const channel = supabase.channel(`chat_realtime_${conversationId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `conversation_id=eq.${conversationId}` }, 
-        (payload) => {
+    let retryCount = 0;
+    const maxRetries = 5;
+    
+    const subscribe = () => {
+      setConnectionStatus("connecting");
+      
+      const channel = supabase
+        .channel(`chat_realtime_${conversationId}`)
+        .on("postgres_changes", {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `conversation_id=eq.${conversationId}`
+        }, (payload) => {
           const msg = payload.new;
-
-          setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
-
-          // 🔔 Only notify for incoming (agent) messages
+          
+          if (processedMessageIds.current.has(msg.id)) return;
+          processedMessageIds.current.add(msg.id);
+          
+          setMessages(prev => {
+            const pendingIndex = prev.findIndex(m => 
+              m.pending && 
+              m.sender_type === msg.sender_type &&
+              m.content === msg.content &&
+              Math.abs(new Date(m.created_at) - new Date(msg.created_at)) < 5000
+            );
+            
+            if (pendingIndex !== -1) {
+              const newMessages = [...prev];
+              newMessages[pendingIndex] = msg;
+              return newMessages;
+            }
+            
+            if (prev.find(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          
           if (msg.sender_type !== "visitor") {
             playSound();
-
-            if (document.hidden && Notification.permission === "granted") {
-              new Notification("New Message", {
-                body: msg.content || "New attachment received",
-              });
+            
+            if (document.hidden) {
+              setUnreadCount(prev => prev + 1);
+              if (Notification.permission === "granted") {
+                new Notification("Shama Support", {
+                  body: msg.content || "New attachment received",
+                  icon: "/favicon.ico",
+                  tag: msg.id
+                });
+              }
+            }
+            
+            setOtherTyping(false);
+          }
+        })
+        .on("postgres_changes", {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_messages",
+          filter: `conversation_id=eq.${conversationId}`
+        }, (payload) => {
+          const updated = payload.new;
+          setMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
+        })
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            setConnectionStatus("connected");
+            retryCount = 0;
+          } else if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+            setConnectionStatus("disconnected");
+            
+            if (retryCount < maxRetries) {
+              setTimeout(() => {
+                retryCount++;
+                subscribe();
+              }, RECONNECT_INTERVAL);
             }
           }
+        });
+        
+      channelRef.current = channel;
+    };
+    
+    subscribe();
+    fetchMessages(conversationId);
+    
+    const typingChannel = supabase
+      .channel(`typing_${conversationId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "chat_typing",
+        filter: `conversation_id=eq.${conversationId}`
+      }, (payload) => {
+        if (payload.new.user_type !== "visitor") {
+          setOtherTyping(true);
+          setTimeout(() => setOtherTyping(false), TYPING_TIMEOUT);
         }
-      )
+      })
       .subscribe();
+    
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      supabase.removeChannel(typingChannel);
+    };
+  }, [conversationId, playSound, fetchMessages]);
 
-    return () => { supabase.removeChannel(channel); };
-  }, [conversationId]);
-
+  // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isOtherTyping]);
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isOpen, otherTyping]);
 
-  const sendTypingStatus = async (isTyping) => {
-    if (!conversationId) return;
-    await supabase.from("chat_typing").upsert({
-      conversation_id: conversationId,
-      user_id: visitorId,
-      user_type: "visitor",
-      typing_at: new Date()
-    }, { onConflict: 'conversation_id, user_id' });
-  };
+  // Send typing status
+  const sendTypingStatus = useCallback(async (typing) => {
+    if (!conversationId || !visitorId) return;
+    
+    try {
+      await supabase.from("chat_typing").upsert({
+        conversation_id: conversationId,
+        user_id: visitorId,
+        user_type: "visitor",
+        typing_at: new Date().toISOString()
+      }, { onConflict: ["conversation_id", "user_id"] });
+    } catch (err) {
+      console.error("Typing indicator error:", err);
+    }
+  }, [conversationId, visitorId]);
 
+  // Handle textarea input
   const handleInputChange = (e) => {
     setInputMessage(e.target.value);
-    sendTypingStatus(true);
+    
+    const textarea = e.target;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    
+    if (!isTyping) {
+      setIsTyping(true);
+      sendTypingStatus(true);
+    }
+    
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => sendTypingStatus(false), 3000);
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      sendTypingStatus(false);
+    }, TYPING_TIMEOUT);
   };
 
+  // Start new chat
   const startChat = async () => {
-    if (!visitorInfo.name.trim()) return;
-
+    if (!visitorInfo.name.trim() || !visitorId) return;
+    
+    if (!isOnline) {
+      alert("You appear to be offline. Please check your internet connection.");
+      return;
+    }
+    
     try {
-      const { data: conv, error } = await supabase.from("chat_conversations").insert([{
-        visitor_id: visitorId, 
-        visitor_name: visitorInfo.name, 
-        visitor_email: visitorInfo.email,
-        visitor_phone: visitorInfo.phone, 
-        status: "active", 
-        source: "website_chat"
-      }]).select().single();
-
+      const { data: conv, error } = await supabase
+        .from("chat_conversations")
+        .insert([{
+          visitor_id: visitorId,
+          visitor_name: visitorInfo.name.trim(),
+          visitor_email: visitorInfo.email?.trim() || null,
+          visitor_phone: visitorInfo.phone?.trim() || null,
+          status: "active",
+          source: "website_chat",
+          last_message_at: new Date().toISOString(),
+          company_whatsapp: process.env.COMPANY_WHATSAPP_NUMBER // Store company number
+        }])
+        .select()
+        .single();
+        
       if (error) throw error;
+      
       setConversationId(conv.id);
+      setSummarySent(false);
       localStorage.setItem("active_conv_id", conv.id);
       localStorage.setItem("chat_visitor_info", JSON.stringify(visitorInfo));
       setStep("chatting");
-    } catch (err) { console.error(err); }
+      
+      await supabase.from("chat_messages").insert([{
+        conversation_id: conv.id,
+        sender_type: "ai",
+        sender_id: "system",
+        sender_name: "Shama",
+        content: `Hi ${visitorInfo.name}! Welcome to Shama Landscape Architects. How can I help you today?`,
+        metadata: { is_welcome: true }
+      }]);
+      
+    } catch (err) {
+      console.error("Error starting chat:", err);
+      alert("Failed to start chat. Please check your connection and try again.");
+    }
+  };
+
+  // File validation
+  const validateFile = (file) => {
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`File too large. Max size is ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+      return false;
+    }
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      alert("Only images (JPEG, PNG, WebP) and PDFs are allowed");
+      return false;
+    }
+    return true;
   };
 
   // Upload file
   const uploadFileToServer = async (file) => {
+    if (!validateFile(file)) throw new Error("Invalid file");
+    
     setIsUploading(true);
     const reader = new FileReader();
+    
     return new Promise((resolve, reject) => {
       reader.onload = async () => {
         try {
-          const res = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               fileName: `${uuidv4()}-${file.name}`,
               fileType: file.type,
@@ -182,153 +496,756 @@ export default function LiveChat() {
 
           if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || 'Upload failed');
+            throw new Error(errData.error || "Upload failed");
           }
 
           const data = await res.json();
-          setIsUploading(false);
-          resolve(data.url);
+          resolve({ url: data.url, name: file.name, type: file.type.startsWith("image/") ? "image" : "pdf" });
         } catch (err) {
-          setIsUploading(false);
           reject(err);
+        } finally {
+          setIsUploading(false);
         }
       };
+      
+      reader.onerror = () => {
+        setIsUploading(false);
+        reject(new Error("Failed to read file"));
+      };
+      
       reader.readAsDataURL(file);
     });
   };
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files);
+    
     for (const file of files) {
       try {
-        const url = await uploadFileToServer(file);
-        setAttachments(prev => [...prev, { name: file.name, type: file.type.startsWith('image/') ? 'image' : 'pdf', url }]);
+        const uploaded = await uploadFileToServer(file);
+        setAttachments(prev => [...prev, uploaded]);
       } catch (err) {
         console.error("Upload error:", err);
+        alert(`Failed to upload ${file.name}: ${err.message}`);
       }
     }
   };
 
-  // 🔥 UPDATED SEND MESSAGE (WITH WHATSAPP)
-  const handleSendMessage = async () => {
-    if ((!inputMessage.trim() && attachments.length === 0) || isSending || !conversationId) return;
+  const removeAttachment = (index) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Retry failed message
+  const retryMessage = async (messageData) => {
+    const tempId = messageData.temp_id;
+    setFailedMessages(prev => {
+      const next = new Set(prev);
+      next.delete(tempId);
+      return next;
+    });
     
+    if (!isOnline) {
+      alert("You are still offline. Please check your connection.");
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .insert([{
+          conversation_id: conversationId,
+          sender_type: "visitor",
+          sender_id: visitorId,
+          sender_name: visitorInfo.name,
+          content: messageData.content,
+          metadata: messageData.metadata
+        }])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      setMessages(prev => prev.map(m => m.temp_id === tempId ? data : m));
+      
+      await Promise.all([
+        fetch("/api/send-whatsapp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: messageData.content || `Sent ${messageData.metadata?.attachments?.length || 0} attachment(s)`,
+            name: visitorInfo.name,
+            phone: visitorInfo.phone || "Not provided",
+            email: visitorInfo.email || "Not provided",
+            conversation_id: conversationId,
+          }),
+        }).catch(() => {}),
+        
+        fetch("/api/ai-reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversation_id: conversationId,
+            message: messageData.content,
+          }),
+        }).catch(() => {})
+      ]);
+      
+    } catch (err) {
+      setFailedMessages(prev => new Set(prev).add(tempId));
+    }
+  };
+
+  // Send message
+  const handleSendMessage = async () => {
+    if (!visitorId || !conversationId) {
+      console.error("Missing visitorId or conversationId", { visitorId, conversationId });
+      alert("Chat session expired. Please refresh and try again.");
+      return;
+    }
+    
+    if ((!inputMessage.trim() && attachments.length === 0) || isSending) return;
+
+    if (!isOnline) {
+      alert("You appear to be offline. Please check your internet connection.");
+      return;
+    }
+
     setIsSending(true);
     sendTypingStatus(false);
-
-    const messageData = {
+    
+    const messageContent = inputMessage.trim();
+    const messageAttachments = [...attachments];
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const optimisticMessage = {
+      id: tempId,
+      temp_id: tempId,
       conversation_id: conversationId,
       sender_type: "visitor",
       sender_id: visitorId,
       sender_name: visitorInfo.name,
-      content: inputMessage,
-      metadata: attachments.length > 0 ? { attachments: attachments } : null
+      content: messageContent,
+      metadata: messageAttachments.length > 0 ? { attachments: messageAttachments } : null,
+      created_at: new Date().toISOString(),
+      pending: true
     };
+    
+    setMessages(prev => [...prev, optimisticMessage]);
+    setInputMessage("");
+    setAttachments([]);
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    
+    try {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .insert([{
+          conversation_id: conversationId,
+          sender_type: "visitor",
+          sender_id: visitorId,
+          sender_name: visitorInfo.name,
+          content: messageContent,
+          metadata: messageAttachments.length > 0 ? { attachments: messageAttachments } : null
+        }])
+        .select()
+        .single();
 
-    const { error } = await supabase.from("chat_messages").insert([messageData]);
+      if (error) {
+        console.error("Raw Supabase error:", error);
+        console.error("Error type:", typeof error);
+        console.error("Error keys:", Object.keys(error || {}));
+        
+        let errorMessage = "Failed to save message";
+        if (error && typeof error === 'object') {
+          errorMessage = error.message || error.error_description || error.error || JSON.stringify(error);
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        }
+        
+        if (!navigator.onLine || JSON.stringify(error) === '{}') {
+          throw new Error("Connection failed. Please check your internet and try again.");
+        }
+        
+        throw new Error(errorMessage);
+      }
 
-    if (!error) {
-      // ✅ WhatsApp notification
+      if (!data) {
+        throw new Error("No data returned from server");
+      }
+
+      await supabase
+        .from("chat_conversations")
+        .update({
+          last_message_at: new Date().toISOString(),
+          status: "active"
+        })
+        .eq("id", conversationId);
+
+      setMessages(prev => prev.map(m => m.temp_id === tempId ? data : m));
+      setFailedMessages(prev => {
+        const next = new Set(prev);
+        next.delete(tempId);
+        return next;
+      });
+      
+      processedMessageIds.current.add(data.id);
+
+      // WhatsApp notification
       try {
-        await fetch("/api/send-whatsapp", {
+        const whatsappRes = await fetch("/api/send-whatsapp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message: inputMessage || `Sent ${attachments.length} attachment(s)`,
+            message: messageContent || `Sent ${messageAttachments.length} attachment(s)`,
             name: visitorInfo.name,
-            phone: visitorInfo.phone,
+            phone: visitorInfo.phone || "Not provided",
+            email: visitorInfo.email || "Not provided",
             conversation_id: conversationId,
           }),
         });
+        
+        if (!whatsappRes.ok) {
+          const errorText = await whatsappRes.text();
+          console.error("WhatsApp API error:", whatsappRes.status, errorText);
+        }
       } catch (err) {
-        console.error("WhatsApp send failed:", err);
+        console.error("WhatsApp send failed:", err.message || err);
       }
 
-      setInputMessage("");
-      setAttachments([]);
-    }
+      // AI reply trigger
+      try {
+        await fetch("/api/ai-reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversation_id: conversationId,
+            message: messageContent,
+          }),
+        });
+      } catch (err) {
+        console.error("AI reply failed:", err.message || err);
+      }
 
-    setIsSending(false);
+    } catch (err) {
+      console.error("Send message error:", {
+        error: err,
+        message: err?.message,
+        stack: err?.stack,
+        type: typeof err,
+        visitorId,
+        conversationId,
+        isOnline: navigator.onLine
+      });
+      
+      const errorMsg = err?.message || "Failed to send message. Please check your connection.";
+      
+      if (/offline|network|failed to fetch/i.test(errorMsg)) {
+        alert("Connection issue: " + errorMsg);
+      }
+      
+      setFailedMessages(prev => new Set(prev).add(tempId));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Close chat with summary
+  const handleClose = () => {
+    if (step === "chatting" && messages.length > 0) {
+      setShowCloseConfirm(true);
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  const confirmClose = async () => {
+    setShowCloseConfirm(false);
+    setIsOpen(false);
+    
+    // Send comprehensive summary to company WhatsApp
+    await sendChatSummary('chat_ended');
+    
+    if (conversationId) {
+      await supabase.from("chat_conversations")
+        .update({ status: "closed", ended_at: new Date().toISOString() })
+        .eq("id", conversationId);
+      localStorage.removeItem("active_conv_id");
+    }
+  };
+
+  // Format message content
+  const formatMessageContent = (content) => {
+    if (!content) return null;
+    
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = content.split(urlRegex);
+    
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a 
+            key={i} 
+            href={part} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="underline break-all"
+            style={{ color: "inherit", opacity: 0.9 }}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part.split("\n").map((line, j) => (
+        <React.Fragment key={j}>
+          {line}
+          {j < part.split("\n").length - 1 && <br />}
+        </React.Fragment>
+      ));
+    });
+  };
+
+  // Group messages by date
+  const groupedMessages = messages.reduce((groups, msg) => {
+    const date = new Date(msg.created_at);
+    const dateKey = format(date, "yyyy-MM-dd");
+    
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(msg);
+    return groups;
+  }, {});
+
+  const getDateLabel = (dateStr) => {
+    const date = new Date(dateStr);
+    if (isToday(date)) return "Today";
+    if (isYesterday(date)) return "Yesterday";
+    return format(date, "MMMM d, yyyy");
   };
 
   return (
     <>
+      {/* Offline indicator */}
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 bg-red-500 text-white text-center text-xs py-2 z-60">
+          You are offline. Messages will be sent when connection is restored.
+        </div>
+      )}
+
       <AnimatePresence>
         {isOpen && (
           <motion.div 
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-24 right-4 md:right-6 w-80 md:w-96 bg-white rounded-2xl shadow-2xl flex flex-col max-h-[70vh] z-50 overflow-hidden"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }} 
+            animate={{ opacity: 1, y: 0, scale: 1 }} 
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed bottom-24 right-2 sm:right-4 md:right-6 w-[calc(100vw-16px)] sm:w-95 md:w-100 bg-white rounded-2xl shadow-2xl flex flex-col max-h-[75vh] sm:max-h-[80vh] z-50 overflow-hidden border"
+            style={{ 
+              borderColor: colors.clay, 
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              bottom: isOnline ? "24px" : "40px"
+            }}
           >
-            <div className="flex items-center justify-between p-4 text-white" style={{ background: `linear-gradient(135deg, ${colors.green} 0%, ${colors.blue} 100%)` }}>
-              <div className="flex items-center gap-2">
-                <HeadphonesIcon size={20}/><h3 className="font-bold">Shama Support</h3>
+            {/* Header */}
+            <div 
+              className="flex items-center justify-between p-3 sm:p-4 text-white relative overflow-hidden"
+              style={{ background: `linear-gradient(135deg, ${colors.green} 0%, ${colors.blue} 100%)` }}
+            >
+              <div className="flex items-center gap-2 sm:gap-3 relative z-10">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  <HeadphonesIcon size={16} className="sm:w-5 sm:h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-xs sm:text-sm">Shama Support</h3>
+                  <div className="flex items-center gap-1 text-[10px] sm:text-xs text-white/80">
+                    {connectionStatus === "connected" ? (
+                      <>
+                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse" />
+                        <span>Online</span>
+                      </>
+                    ) : connectionStatus === "connecting" ? (
+                      <>
+                        <Loader2 size={10} className="animate-spin" />
+                        <span>Connecting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff size={10} />
+                        <span>Offline</span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
-              <button onClick={() => setIsOpen(false)}><X size={20}/></button>
+              
+              <div className="flex items-center gap-1 relative z-10">
+                {step === "chatting" && (
+                  <>
+                    <button 
+                      onClick={() => sendChatSummary('manual')}
+                      className="p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-colors"
+                      title="Send summary to WhatsApp"
+                      disabled={summarySent}
+                    >
+                      <Share2 size={16} className={`sm:w-4.5 sm:h-4.5 ${summarySent ? 'opacity-50' : ''}`} />
+                    </button>
+                    <button 
+                      onClick={() => setShowCloseConfirm(true)}
+                      className="p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-colors"
+                      title="End chat"
+                    >
+                      <X size={16} className="sm:w-4.5 sm:h-4.5" />
+                    </button>
+                  </>
+                )}
+                <button 
+                  onClick={handleClose}
+                  className="p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <ChevronDown size={18} className="sm:w-5 sm:h-5" />
+                </button>
+              </div>
+              
+              <div className="absolute inset-0 opacity-10" style={{
+                backgroundImage: `radial-gradient(circle at 20% 50%, white 1px, transparent 1px)`,
+                backgroundSize: "20px 20px"
+              }} />
             </div>
 
-            <div className="flex-1 p-4 space-y-3 overflow-y-auto" style={{ backgroundColor: colors.clay }}>
-              {step === "form" ? (
-                <div className="py-4 space-y-4">
-                   <input className="w-full p-3 text-sm outline-none rounded-xl" placeholder="Name *" value={visitorInfo.name} onChange={e => setVisitorInfo({...visitorInfo, name: e.target.value})} />
-                   <input className="w-full p-3 text-sm outline-none rounded-xl" placeholder="Email" value={visitorInfo.email} onChange={e => setVisitorInfo({...visitorInfo, email: e.target.value})} />
-                   <input className="w-full p-3 text-sm outline-none rounded-xl" placeholder="Phone" value={visitorInfo.phone} onChange={e => setVisitorInfo({...visitorInfo, phone: e.target.value})} />
-                   <button onClick={startChat} className="w-full p-3 font-bold text-white rounded-xl" style={{ background: colors.green }}>Start Chat</button>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4" style={{ backgroundColor: colors.clay }}>
+              {isLoadingHistory ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="animate-spin" style={{ color: colors.green }} />
+                </div>
+              ) : step === "form" ? (
+                <div className="py-4 sm:py-6 space-y-3 sm:space-y-4">
+                  <div className="text-center mb-4 sm:mb-6">
+                    <div 
+                      className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full flex items-center justify-center mb-2 sm:mb-3"
+                      style={{ backgroundColor: colors.green }}
+                    >
+                      <MessageCircle size={24} className="sm:w-8 sm:h-8" color="white" />
+                    </div>
+                    <h4 className="font-semibold text-sm sm:text-base text-gray-800">Start a Conversation</h4>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1">We&apos;re here to help with your landscape needs</p>
+                  </div>
+                  
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="relative">
+                      <input 
+                        className="w-full p-2.5 sm:p-3 pl-9 sm:pl-10 text-xs sm:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/50 transition-all"
+                        placeholder="Your Name *"
+                        value={visitorInfo.name}
+                        onChange={e => setVisitorInfo({...visitorInfo, name: e.target.value})}
+                        onKeyDown={e => e.key === "Enter" && startChat()}
+                      />
+                      <span className="absolute left-2.5 sm:left-3 top-2.5 sm:top-3 text-gray-400 text-xs sm:text-sm">👤</span>
+                    </div>
+                    
+                    <div className="relative">
+                      <input 
+                        className="w-full p-2.5 sm:p-3 pl-9 sm:pl-10 text-xs sm:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/50 transition-all"
+                        placeholder="Email Address"
+                        type="email"
+                        value={visitorInfo.email}
+                        onChange={e => setVisitorInfo({...visitorInfo, email: e.target.value})}
+                      />
+                      <Mail size={14} className="absolute left-2.5 sm:left-3 top-2.5 sm:top-3.5 text-gray-400" />
+                    </div>
+                    
+                    <div className="relative">
+                      <input 
+                        className="w-full p-2.5 sm:p-3 pl-9 sm:pl-10 text-xs sm:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/50 transition-all"
+                        placeholder="Phone Number"
+                        type="tel"
+                        value={visitorInfo.phone}
+                        onChange={e => setVisitorInfo({...visitorInfo, phone: e.target.value})}
+                      />
+                      <Phone size={14} className="absolute left-2.5 sm:left-3 top-2.5 sm:top-3.5 text-gray-400" />
+                    </div>
+                    
+                    <button 
+                      onClick={startChat} 
+                      disabled={!visitorInfo.name.trim()}
+                      className="w-full p-2.5 sm:p-3 font-bold text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98] text-xs sm:text-sm"
+                      style={{ background: colors.green }}
+                    >
+                      Start Chat
+                    </button>
+                  </div>
+                  
+                  <p className="text-[10px] sm:text-xs text-center text-gray-500 mt-3 sm:mt-4">
+                    By starting a chat, you agree to our privacy policy
+                  </p>
                 </div>
               ) : (
                 <>
-                  {messages.map((m, i) => {
-                    const isVisitor = m.sender_type === "visitor";
-                    const hasAttachments = m.metadata?.attachments;
+                  {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+                    <div key={date} className="space-y-2 sm:space-y-3">
+                      <div className="flex justify-center">
+                        <span className="text-[10px] sm:text-xs text-gray-500 bg-white/50 px-2 sm:px-3 py-1 rounded-full">
+                          {getDateLabel(date)}
+                        </span>
+                      </div>
+                      
+                      {dateMessages.map((m, i) => {
+                        const isVisitor = m.sender_type === "visitor";
+                        const isFailed = failedMessages.has(m.temp_id);
+                        const hasAttachments = m.metadata?.attachments?.length > 0;
+                        const messageKey = m.id || m.temp_id || `msg-${date}-${i}`;
+                        
+                        return (
+                          <motion.div 
+                            key={messageKey}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`flex ${isVisitor ? "justify-end" : "justify-start"}`}
+                          >
+                            <div className={`max-w-[90%] sm:max-w-[85%] ${isVisitor ? "order-2" : "order-1"}`}>
+                              {!isVisitor && (
+                                <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 sm:mb-1 ml-1">
+                                  {m.sender_name || "Shama"}
+                                </div>
+                              )}
+                              
+                              <div 
+                                className={`p-2.5 sm:p-3 rounded-2xl text-xs sm:text-sm relative ${
+                                  isVisitor 
+                                    ? "rounded-br-md text-white" 
+                                    : "rounded-bl-md bg-white shadow-sm text-gray-800"
+                                } ${isFailed ? "ring-2 ring-red-400" : ""}`}
+                                style={{ backgroundColor: isVisitor ? colors.green : undefined }}
+                              >
+                                {m.content && (
+                                  <div className="leading-relaxed wrap-break-word">
+                                    {formatMessageContent(m.content)}
+                                  </div>
+                                )}
 
-                    return (
-                      <div key={m.id || i} className={`flex ${isVisitor ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${isVisitor ? "bg-shama-green text-white" : "bg-white shadow-sm"}`}>
-                          {m.content && <p className="mb-2 leading-relaxed">{m.content}</p>}
-
-                          {hasAttachments && (
-                            <div className="space-y-2">
-                              {m.metadata.attachments.map((att, attIdx) => (
-                                <div key={attIdx} className="overflow-hidden rounded-lg">
-                                  {att.type === 'image' ? (
-                                    <img src={att.url} alt={att.name} className="h-auto max-w-full border rounded-lg cursor-pointer border-white/20 hover:opacity-90" onClick={() => window.open(att.url, '_blank')} />
-                                  ) : (
-                                    <a href={att.url} target="_blank" download={att.name} className={`flex items-center gap-2 p-2 rounded-lg text-xs ${isVisitor ? 'bg-white/10' : 'bg-gray-100'}`}>
-                                      <FileText size={16} />
-                                      <span className="flex-1 truncate">{att.name}</span>
-                                      <Download size={14} />
-                                    </a>
+                                {hasAttachments && (
+                                  <div className={`space-y-1.5 sm:space-y-2 ${m.content ? "mt-1.5 sm:mt-2" : ""}`}>
+                                    {m.metadata.attachments.map((att, attIdx) => (
+                                      <div key={`${messageKey}-att-${attIdx}`} className="overflow-hidden rounded-lg">
+                                        {att.type === 'image' ? (
+                                          <div className="relative group">
+                                            <img 
+                                              src={att.url} 
+                                              alt={att.name} 
+                                              className="h-auto max-w-full border rounded-lg cursor-pointer border-white/20 hover:opacity-90 transition-opacity max-h-37.5 sm:max-h-50 object-cover"
+                                              onClick={() => window.open(att.url, '_blank')}
+                                              loading="lazy"
+                                            />
+                                          </div>
+                                        ) : (
+                                          <a 
+                                            href={att.url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            download={att.name}
+                                            className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-lg text-[10px] sm:text-xs transition-colors ${
+                                              isVisitor ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'
+                                            }`}
+                                          >
+                                            <FileText size={14} className="sm:w-4 sm:h-4" />
+                                            <span className="flex-1 truncate">{att.name}</span>
+                                            <Download size={12} className="sm:w-4 sm:h-4" />
+                                          </a>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                
+                                {m.pending && (
+                                  <div className="absolute -right-5 sm:-right-6 bottom-1">
+                                    <Loader2 size={10} className="animate-spin text-gray-400 sm:w-3 sm:h-3" />
+                                  </div>
+                                )}
+                                
+                                {isFailed && (
+                                  <div className="absolute -right-5 sm:-right-6 bottom-1 cursor-pointer" onClick={() => retryMessage(m)}>
+                                    <AlertCircle size={12} className="text-red-500 sm:w-4 sm:h-4" />
+                                  </div>
+                                )}
+                                
+                                <div className={`flex items-center gap-1 mt-0.5 sm:mt-1 text-[8px] sm:text-[10px] ${
+                                  isVisitor ? "text-white/70 justify-end" : "text-gray-400"
+                                }`}>
+                                  {m.created_at && format(new Date(m.created_at), "h:mm a")}
+                                  {isVisitor && !m.pending && !isFailed && (
+                                    <CheckCheck size={10} className={m.id && !m.pending ? "text-blue-300" : "text-white/50"} />
                                   )}
                                 </div>
-                              ))}
+                              </div>
                             </div>
-                          )}
-                          <span className="text-[9px] mt-1 block opacity-60 text-right">{m.created_at && format(new Date(m.created_at), "h:mm a")}</span>
-                        </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  
+                  {otherTyping && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex justify-start"
+                    >
+                      <div className="bg-white p-2 sm:p-3 rounded-2xl rounded-bl-md shadow-sm flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                       </div>
-                    );
-                  })}
+                    </motion.div>
+                  )}
+                  
                   <div ref={messagesEndRef} />
                 </>
               )}
             </div>
 
+            {/* Input area */}
             {step === "chatting" && (
-              <div className="p-3 bg-white border-t">
-                <div className="flex items-center gap-2">
-                  <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-shama-green"><Paperclip size={20}/></button>
-                  <input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileSelect} accept="image/*,.pdf" />
-                  <input className="flex-1 p-2 text-sm bg-gray-100 outline-none rounded-xl" placeholder="Type..." value={inputMessage} onChange={handleInputChange} onKeyDown={(e) => e.key === "Enter" && handleSendMessage()} />
-                  <button onClick={handleSendMessage} className="p-2 text-white shadow-md rounded-xl bg-shama-green"><Send size={18}/></button>
+              <div className="p-2 sm:p-3 bg-white border-t border-gray-100">
+                {attachments.length > 0 && (
+                  <div className="flex gap-1.5 sm:gap-2 mb-1.5 sm:mb-2 overflow-x-auto pb-1.5 sm:pb-2">
+                    {attachments.map((att, idx) => (
+                      <div key={`preview-${idx}`} className="relative shrink-0">
+                        {att.type === 'image' ? (
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-gray-200">
+                            <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-gray-100 flex items-center justify-center border border-gray-200">
+                            <FileText size={16} className="sm:w-5 sm:h-5" style={{ color: colors.terra }} />
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => removeAttachment(idx)}
+                          className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] sm:text-xs hover:bg-red-600 transition-colors"
+                        >
+                          <X size={10} className="sm:w-3 sm:h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="flex items-end gap-1.5 sm:gap-2">
+                  <button 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={isUploading || attachments.length >= 3}
+                    className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                  >
+                    {isUploading ? <Loader2 size={16} className="animate-spin sm:w-5 sm:h-5" /> : <Paperclip size={16} className="sm:w-5 sm:h-5" />}
+                  </button>
+                  
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    multiple 
+                    onChange={handleFileSelect} 
+                    accept="image/*,.pdf"
+                  />
+                  
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={textareaRef}
+                      className="w-full p-2 sm:p-3 pr-8 sm:pr-10 text-xs sm:text-sm bg-gray-100 rounded-xl resize-none outline-none focus:ring-2 focus:ring-shama-green/50 transition-all max-h-25 sm:max-h-30"
+                      placeholder="Type a message..."
+                      value={inputMessage}
+                      onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
+                      rows={1}
+                    />
+                    <button className="absolute right-1.5 sm:right-2 bottom-1.5 sm:bottom-2 p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                      <Smile size={14} className="sm:w-4.5 sm:h-4.5" />
+                    </button>
+                  </div>
+                  
+                  <button 
+                    onClick={handleSendMessage}
+                    disabled={isSending || (!inputMessage.trim() && attachments.length === 0)}
+                    className="p-2 sm:p-3 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-95 flex items-center justify-center"
+                    style={{ background: colors.green }}
+                  >
+                    {isSending ? <Loader2 size={14} className="animate-spin sm:w-4.5 sm:h-4.5" /> : <Send size={14} className="sm:w-4.5 sm:h-4.5" />}
+                  </button>
+                </div>
+                
+                <div className="text-[10px] sm:text-xs text-gray-400 mt-1.5 sm:mt-2 text-center">
+                  Press Enter to send, Shift+Enter for new line
                 </div>
               </div>
             )}
+            
+            {/* Close confirmation modal */}
+            <AnimatePresence>
+              {showCloseConfirm && (
+                <motion.div 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                >
+                  <motion.div 
+                    initial={{ scale: 0.9 }} 
+                    animate={{ scale: 1 }} 
+                    exit={{ scale: 0.9 }}
+                    className="bg-white rounded-2xl p-4 sm:p-6 max-w-xs sm:max-w-sm w-full shadow-2xl"
+                  >
+                    <h4 className="font-bold text-sm sm:text-lg mb-1.5 sm:mb-2">End Conversation?</h4>
+                    <p className="text-gray-600 text-xs sm:text-sm mb-3 sm:mb-4">
+                      A complete chat summary will be sent to our team at 254781109052. You can start a new chat anytime.
+                    </p>
+                    <div className="flex gap-2 sm:gap-3">
+                      <button 
+                        onClick={() => setShowCloseConfirm(false)}
+                        className="flex-1 p-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors text-xs sm:text-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={confirmClose}
+                        className="flex-1 p-2 rounded-xl text-white hover:opacity-90 transition-colors text-xs sm:text-sm"
+                        style={{ background: colors.terra }}
+                      >
+                        End & Send Summary
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <button onClick={() => setIsOpen(!isOpen)} className="fixed z-50 flex items-center justify-center w-16 h-16 text-white rounded-full shadow-2xl bottom-6 right-6 bg-shama-green">
-        <MessageCircle size={32}/>
-      </button>
+      {/* Floating button */}
+      <motion.button 
+        onClick={() => setIsOpen(!isOpen)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="fixed z-50 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-white rounded-full shadow-2xl bottom-4 sm:bottom-6 right-4 sm:right-6 transition-colors"
+        style={{ 
+          background: isOpen ? colors.terra : colors.green,
+          boxShadow: "0 10px 40px -10px rgba(15, 127, 64, 0.5)"
+        }}
+      >
+        {isOpen ? <ChevronDown size={24} className="sm:w-7 sm:h-7" /> : <MessageCircle size={24} className="sm:w-7 sm:h-7" />}
+        
+        {!isOpen && unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-red-500 text-white text-[10px] sm:text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </motion.button>
     </>
   );
 }

@@ -1,114 +1,112 @@
-import { createClient } from "@supabase/supabase-js";
+// src/app/api/send-whatsapp/route.js
+import { NextResponse } from 'next/server';
 
-// ✅ Secure server-side Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const COMPANY_WHATSAPP_NUMBER =
+  process.env.COMPANY_WHATSAPP_NUMBER || '254781109052';
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    let formData;
-    let body = "";
+    const {
+      message,
+      name,
+      phone,
+      email,
+      conversation_id,
+      is_summary = false,
+      attachments = [],
+    } = await request.json();
 
-    // Determine if request is JSON (Postman) or form-data (Twilio)
-    const contentType = req.headers.get("content-type") || "";
+    if (!message) {
+      return NextResponse.json(
+        { error: 'Message required' },
+        { status: 400 }
+      );
+    }
 
-    if (contentType.includes("application/json")) {
-      formData = await req.json();
-      body = formData.message || formData.Body || "";
-    } else if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
-      formData = await req.formData();
-      body = formData.get("Body") || "";
+    // ----------------------------
+    // FORMAT MESSAGE
+    // ----------------------------
+    let formattedMessage = '';
+
+    if (is_summary) {
+      formattedMessage = message;
     } else {
-      return new Response("Unsupported content-type", { status: 415 });
+      formattedMessage =
+        `*🚨 New Message - Shama Chat*\n\n` +
+        `*From:* ${name || 'Anonymous'}\n` +
+        `*Phone:* ${phone || 'N/A'}\n` +
+        `*Email:* ${email || 'N/A'}\n` +
+        `*Time:* ${new Date().toLocaleString('en-KE', {
+          timeZone: 'Africa/Nairobi',
+        })}\n\n` +
+        `*Message:*\n${message}\n\n` +
+        (attachments?.length > 0
+          ? `*Attachments:* ${attachments.length} file(s)\n`
+          : '') +
+        `_Reply via WhatsApp_`;
     }
 
-    // Get sender info
-    const from = formData.get?.("From") || formData.phone || formData.from;
-    const profileName = formData.get?.("ProfileName") || formData.name || "WhatsApp";
+    // ----------------------------
+    // TWILIO CREDENTIALS
+    // ----------------------------
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_WHATSAPP_FROM; // whatsapp:+14155238886
 
-    if (!from) {
-      console.error("Missing sender info");
-      return new Response("Missing sender", { status: 400 });
+    if (!accountSid || !authToken || !fromNumber) {
+      throw new Error('Twilio credentials not configured');
     }
 
-    // Normalize phone
-    const phone = from.replace("whatsapp:", "").trim();
+    // ----------------------------
+    // CLEAN PHONE NUMBER (IMPORTANT FIX)
+    // ----------------------------
+    const cleanNumber = String(COMPANY_WHATSAPP_NUMBER).replace(/[^0-9]/g, '');
 
-    console.log("Incoming WhatsApp:", phone, body);
+    const toNumber = `whatsapp:+${cleanNumber}`;
 
-    // 🔍 Find existing conversation
-    const { data: convo, error: convoError } = await supabase
-      .from("chat_conversations")
-      .select("*")
-      .eq("visitor_phone", phone)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // ----------------------------
+    // TWILIO REQUEST
+    // ----------------------------
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
-    if (convoError) {
-      console.error("Conversation fetch error:", convoError);
-      return new Response("DB error", { status: 500 });
+    const params = new URLSearchParams({
+      To: toNumber,
+      From: fromNumber,
+      Body: formattedMessage,
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization:
+          'Basic ' +
+          Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Twilio Error:', data);
+      throw new Error(data.message || 'Twilio API error');
     }
 
-    let conversationId = convo?.id;
+    return NextResponse.json({
+      success: true,
+      message: 'WhatsApp sent via Twilio',
+      sid: data.sid,
+      to: toNumber,
+    });
+  } catch (error) {
+    console.error('WhatsApp Error:', error);
 
-    // 🆕 Create conversation if none exists
-    if (!conversationId) {
-      const { data: newConv, error: createError } = await supabase
-        .from("chat_conversations")
-        .insert([{
-          visitor_id: crypto.randomUUID(),
-          visitor_name: profileName,
-          visitor_phone: phone,
-          source: "whatsapp",
-          status: "active"
-        }])
-        .select()
-        .single();
-
-      if (createError) {
-        console.error("Create conversation error:", createError);
-        return new Response("Error creating conversation", { status: 500 });
-      }
-
-      conversationId = newConv.id;
-    }
-
-    // 💬 Save message
-    const { error: msgError } = await supabase
-      .from("chat_messages")
-      .insert([{
-        conversation_id: conversationId,
-        sender_type: "visitor", // mark WhatsApp messages as visitor
-        sender_id: phone,
-        sender_name: profileName,
-        content: body || "[WhatsApp message]"
-      }]);
-
-    if (msgError) {
-      console.error("Message insert error:", msgError);
-      return new Response("Insert error", { status: 500 });
-    }
-
-    // 🔄 Update conversation last message
-    const { error: updateError } = await supabase
-      .from("chat_conversations")
-      .update({
-        last_message: body,
-        last_message_at: new Date(),
-        unread_count: convo?.unread_count != null ? convo.unread_count + 1 : 1
-      })
-      .eq("id", conversationId);
-
-    if (updateError) {
-      console.error("Conversation update error:", updateError);
-    }
-
-    return new Response(JSON.stringify({ status: "ok", conversationId }), { status: 200 });
-  } catch (err) {
-    console.error("Webhook error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return NextResponse.json(
+      {
+        error: error.message,
+      },
+      { status: 500 }
+    );
   }
 }
