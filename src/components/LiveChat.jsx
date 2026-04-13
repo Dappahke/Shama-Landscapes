@@ -17,6 +17,7 @@ const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "applicatio
 const TYPING_TIMEOUT = 3000;
 const RECONNECT_INTERVAL = 5000;
 const SUMMARY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const COMPANY_WHATSAPP = process.env.NEXT_PUBLIC_COMPANY_WHATSAPP || "254711706059";
 
 export default function LiveChat() {
   // State management
@@ -39,6 +40,7 @@ export default function LiveChat() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [summarySent, setSummarySent] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState(null);
 
   // Refs
   const messagesEndRef = useRef(null);
@@ -136,7 +138,15 @@ export default function LiveChat() {
       const { data, error } = await query.limit(1).maybeSingle();
       if (error) throw error;
       
-      return data || null;
+      if (!data) return null;
+      
+      return {
+        visitor_id: data.visitor_id,
+        visitor_name: data.visitor_name || "",
+        visitor_email: data.visitor_email || "",
+        visitor_phone: data.visitor_phone || ""
+      };
+      
     } catch (err) {
       console.error("Error checking existing visitor:", err);
       return null;
@@ -160,16 +170,28 @@ export default function LiveChat() {
       if (savedInfo) {
         try {
           const parsed = JSON.parse(savedInfo);
-          const existing = await checkExistingVisitor(parsed.email, parsed.phone);
+          const safeInfo = {
+            name: parsed.name || "",
+            email: parsed.email || "",
+            phone: parsed.phone || ""
+          };
+          
+          const existing = await checkExistingVisitor(safeInfo.email, safeInfo.phone);
           
           if (existing) {
-            setVisitorInfo(existing);
+            setVisitorInfo({
+              name: existing.visitor_name || safeInfo.name || "",
+              email: existing.visitor_email || safeInfo.email || "",
+              phone: existing.visitor_phone || safeInfo.phone || ""
+            });
             localStorage.setItem("chat_visitor_id", existing.visitor_id);
           } else {
-            setVisitorInfo(parsed);
+            setVisitorInfo(safeInfo);
           }
         } catch (e) {
           console.error("Error parsing saved info:", e);
+          localStorage.removeItem("chat_visitor_info");
+          setVisitorInfo({ name: "", email: "", phone: "" });
         }
       }
       
@@ -206,34 +228,77 @@ export default function LiveChat() {
     }
   }, []);
 
-  // Send chat summary to company WhatsApp
+  // Send chat summary to company WhatsApp with fallback
   const sendChatSummary = useCallback(async (trigger = 'manual') => {
-    if (!conversationId || summarySent) return;
+    if (!conversationId || summarySent) {
+      console.log('⏭️ Skipping summary:', { conversationId, summarySent });
+      return;
+    }
     
     try {
-      console.log(`Sending chat summary [${trigger}]...`);
+      console.log(`📤 Sending chat summary [${trigger}]...`);
+      console.log('📊 Current messages count:', messages.length);
       
-      const response = await fetch('/api/send-chat-summary', {
+      const messageSummary = messages
+        .filter(m => m.content)
+        .map(m => {
+          const sender = m.sender_type === 'visitor' ? '👤 Client' : '🤖 AI';
+          const time = format(new Date(m.created_at), 'h:mm a');
+          return `${time} ${sender}: ${m.content.substring(0, 100)}${m.content.length > 100 ? '...' : ''}`;
+        })
+        .join('\n')
+        .substring(0, 1200);
+
+      const summaryText = `📋 *Chat Report* [${trigger}]
+      
+👤 *Client:* ${visitorInfo.name || 'Unknown'}
+📞 *Phone:* ${visitorInfo.phone || 'Not provided'}
+📧 *Email:* ${visitorInfo.email || 'Not provided'}
+🆔 *Conversation:* ${conversationId}
+⏰ *Duration:* ${messages.length > 0 ? 
+  Math.round((new Date(messages[messages.length-1].created_at) - new Date(messages[0].created_at)) / 60000) + ' mins' 
+  : 'N/A'}
+
+💬 *Conversation:*
+${messageSummary || 'No messages'}
+
+---
+Sent from Shama LiveChat`;
+
+      console.log('📱 Sending to WhatsApp:', COMPANY_WHATSAPP);
+      console.log('📝 Message preview:', summaryText.substring(0, 200) + '...');
+
+      const response = await fetch('/api/send-whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conversation_id: conversationId,
-          trigger: trigger
+          to: COMPANY_WHATSAPP,
+          message: summaryText,
         }),
       });
 
+      const result = await response.json();
+      console.log('📊 Delivery result:', result);
+
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error);
+        throw new Error(result.error || 'Failed to send');
       }
 
-      console.log('Chat summary sent successfully to 254781109052');
+      console.log(`✅ Chat summary sent via ${result.method}`);
+      setDeliveryMethod(result.method);
       setSummarySent(true);
       
+      if (result.method === 'email') {
+        console.log('📧 WhatsApp failed, email sent instead');
+      } else if (result.method === 'sms') {
+        console.log('📱 WhatsApp & email failed, SMS sent instead');
+      }
+      
     } catch (err) {
-      console.error('Failed to send chat summary:', err);
+      console.error('❌ Failed to send chat summary:', err.message);
+      // Don't throw - let the chat close normally
     }
-  }, [conversationId, summarySent]);
+  }, [conversationId, summarySent, messages, visitorInfo]);
 
   // Inactivity timeout - send summary after 30 minutes
   useEffect(() => {
@@ -245,14 +310,15 @@ export default function LiveChat() {
       inactivityTimeoutRef.current = setTimeout(() => {
         console.log("30min timeout - sending summary");
         sendChatSummary('timeout_30min');
-        // Mark as closed but keep UI open for user to see
         supabase.from("chat_conversations")
-          .update({ status: "timeout", last_message_at: new Date().toISOString() })
-          .eq("id", conversationId);
+          .update({ status: "timeout" })
+          .eq("id", conversationId)
+          .then(({ error }) => {
+            if (error) console.error("Timeout status update error:", error);
+          });
       }, SUMMARY_TIMEOUT);
     };
     
-    // Reset on new messages or typing
     resetInactivityTimeout();
     
     return () => {
@@ -415,7 +481,8 @@ export default function LiveChat() {
 
   // Start new chat
   const startChat = async () => {
-    if (!visitorInfo.name.trim() || !visitorId) return;
+    const name = visitorInfo.name || "";
+    if (!name.trim() || !visitorId) return;
     
     if (!isOnline) {
       alert("You appear to be offline. Please check your internet connection.");
@@ -427,13 +494,12 @@ export default function LiveChat() {
         .from("chat_conversations")
         .insert([{
           visitor_id: visitorId,
-          visitor_name: visitorInfo.name.trim(),
-          visitor_email: visitorInfo.email?.trim() || null,
-          visitor_phone: visitorInfo.phone?.trim() || null,
+          visitor_name: name.trim(),
+          visitor_email: (visitorInfo.email || "").trim() || null,
+          visitor_phone: (visitorInfo.phone || "").trim() || null,
           status: "active",
           source: "website_chat",
           last_message_at: new Date().toISOString(),
-          company_whatsapp: process.env.COMPANY_WHATSAPP_NUMBER // Store company number
         }])
         .select()
         .single();
@@ -442,6 +508,7 @@ export default function LiveChat() {
       
       setConversationId(conv.id);
       setSummarySent(false);
+      setDeliveryMethod(null);
       localStorage.setItem("active_conv_id", conv.id);
       localStorage.setItem("chat_visitor_info", JSON.stringify(visitorInfo));
       setStep("chatting");
@@ -451,7 +518,7 @@ export default function LiveChat() {
         sender_type: "ai",
         sender_id: "system",
         sender_name: "Shama",
-        content: `Hi ${visitorInfo.name}! Welcome to Shama Landscape Architects. How can I help you today?`,
+        content: `Hi ${name.trim()}! Welcome to Shama Landscape Architects. How can I help you today?`,
         metadata: { is_welcome: true }
       }]);
       
@@ -556,7 +623,7 @@ export default function LiveChat() {
           conversation_id: conversationId,
           sender_type: "visitor",
           sender_id: visitorId,
-          sender_name: visitorInfo.name,
+          sender_name: visitorInfo.name || "Unknown",
           content: messageData.content,
           metadata: messageData.metadata
         }])
@@ -567,28 +634,19 @@ export default function LiveChat() {
       
       setMessages(prev => prev.map(m => m.temp_id === tempId ? data : m));
       
-      await Promise.all([
-        fetch("/api/send-whatsapp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: messageData.content || `Sent ${messageData.metadata?.attachments?.length || 0} attachment(s)`,
-            name: visitorInfo.name,
-            phone: visitorInfo.phone || "Not provided",
-            email: visitorInfo.email || "Not provided",
-            conversation_id: conversationId,
-          }),
-        }).catch(() => {}),
-        
-        fetch("/api/ai-reply", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversationId,
-            message: messageData.content,
-          }),
-        }).catch(() => {})
-      ]);
+      await fetch("/api/ai-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          message: messageData.content,
+          visitor_info: {
+            name: visitorInfo.name || "",
+            email: visitorInfo.email || "",
+            phone: visitorInfo.phone || ""
+          }
+        }),
+      }).catch(() => {});
       
     } catch (err) {
       setFailedMessages(prev => new Set(prev).add(tempId));
@@ -623,7 +681,7 @@ export default function LiveChat() {
       conversation_id: conversationId,
       sender_type: "visitor",
       sender_id: visitorId,
-      sender_name: visitorInfo.name,
+      sender_name: visitorInfo.name || "Unknown",
       content: messageContent,
       metadata: messageAttachments.length > 0 ? { attachments: messageAttachments } : null,
       created_at: new Date().toISOString(),
@@ -642,7 +700,7 @@ export default function LiveChat() {
           conversation_id: conversationId,
           sender_type: "visitor",
           sender_id: visitorId,
-          sender_name: visitorInfo.name,
+          sender_name: visitorInfo.name || "Unknown",
           content: messageContent,
           metadata: messageAttachments.length > 0 ? { attachments: messageAttachments } : null
         }])
@@ -651,8 +709,6 @@ export default function LiveChat() {
 
       if (error) {
         console.error("Raw Supabase error:", error);
-        console.error("Error type:", typeof error);
-        console.error("Error keys:", Object.keys(error || {}));
         
         let errorMessage = "Failed to save message";
         if (error && typeof error === 'object') {
@@ -689,29 +745,6 @@ export default function LiveChat() {
       
       processedMessageIds.current.add(data.id);
 
-      // WhatsApp notification
-      try {
-        const whatsappRes = await fetch("/api/send-whatsapp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: messageContent || `Sent ${messageAttachments.length} attachment(s)`,
-            name: visitorInfo.name,
-            phone: visitorInfo.phone || "Not provided",
-            email: visitorInfo.email || "Not provided",
-            conversation_id: conversationId,
-          }),
-        });
-        
-        if (!whatsappRes.ok) {
-          const errorText = await whatsappRes.text();
-          console.error("WhatsApp API error:", whatsappRes.status, errorText);
-        }
-      } catch (err) {
-        console.error("WhatsApp send failed:", err.message || err);
-      }
-
-      // AI reply trigger
       try {
         await fetch("/api/ai-reply", {
           method: "POST",
@@ -719,6 +752,11 @@ export default function LiveChat() {
           body: JSON.stringify({
             conversation_id: conversationId,
             message: messageContent,
+            visitor_info: {
+              name: visitorInfo.name || "",
+              email: visitorInfo.email || "",
+              phone: visitorInfo.phone || ""
+            }
           }),
         });
       } catch (err) {
@@ -729,8 +767,6 @@ export default function LiveChat() {
       console.error("Send message error:", {
         error: err,
         message: err?.message,
-        stack: err?.stack,
-        type: typeof err,
         visitorId,
         conversationId,
         isOnline: navigator.onLine
@@ -769,13 +805,18 @@ export default function LiveChat() {
     setShowCloseConfirm(false);
     setIsOpen(false);
     
-    // Send comprehensive summary to company WhatsApp
     await sendChatSummary('chat_ended');
     
     if (conversationId) {
-      await supabase.from("chat_conversations")
-        .update({ status: "closed", ended_at: new Date().toISOString() })
+      const { error } = await supabase
+        .from("chat_conversations")
+        .update({ status: "closed" })
         .eq("id", conversationId);
+        
+      if (error) {
+        console.error("Error closing conversation:", error);
+      }
+      
       localStorage.removeItem("active_conv_id");
     }
   };
@@ -826,6 +867,17 @@ export default function LiveChat() {
     if (isToday(date)) return "Today";
     if (isYesterday(date)) return "Yesterday";
     return format(date, "MMMM d, yyyy");
+  };
+
+  // Get delivery status text
+  const getDeliveryStatus = () => {
+    if (!summarySent) return null;
+    switch (deliveryMethod) {
+      case 'whatsapp': return '✅ Sent via WhatsApp';
+      case 'email': return '📧 Sent via Email (WhatsApp unavailable)';
+      case 'sms': return '📱 Sent via SMS (fallback)';
+      default: return '✅ Summary sent';
+    }
   };
 
   return (
@@ -941,8 +993,8 @@ export default function LiveChat() {
                       <input 
                         className="w-full p-2.5 sm:p-3 pl-9 sm:pl-10 text-xs sm:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/50 transition-all"
                         placeholder="Your Name *"
-                        value={visitorInfo.name}
-                        onChange={e => setVisitorInfo({...visitorInfo, name: e.target.value})}
+                        value={visitorInfo.name || ""}
+                        onChange={e => setVisitorInfo(prev => ({...prev, name: e.target.value}))}
                         onKeyDown={e => e.key === "Enter" && startChat()}
                       />
                       <span className="absolute left-2.5 sm:left-3 top-2.5 sm:top-3 text-gray-400 text-xs sm:text-sm">👤</span>
@@ -953,8 +1005,8 @@ export default function LiveChat() {
                         className="w-full p-2.5 sm:p-3 pl-9 sm:pl-10 text-xs sm:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/50 transition-all"
                         placeholder="Email Address"
                         type="email"
-                        value={visitorInfo.email}
-                        onChange={e => setVisitorInfo({...visitorInfo, email: e.target.value})}
+                        value={visitorInfo.email || ""}
+                        onChange={e => setVisitorInfo(prev => ({...prev, email: e.target.value}))}
                       />
                       <Mail size={14} className="absolute left-2.5 sm:left-3 top-2.5 sm:top-3.5 text-gray-400" />
                     </div>
@@ -964,15 +1016,15 @@ export default function LiveChat() {
                         className="w-full p-2.5 sm:p-3 pl-9 sm:pl-10 text-xs sm:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-shama-green/50 transition-all"
                         placeholder="Phone Number"
                         type="tel"
-                        value={visitorInfo.phone}
-                        onChange={e => setVisitorInfo({...visitorInfo, phone: e.target.value})}
+                        value={visitorInfo.phone || ""}
+                        onChange={e => setVisitorInfo(prev => ({...prev, phone: e.target.value}))}
                       />
                       <Phone size={14} className="absolute left-2.5 sm:left-3 top-2.5 sm:top-3.5 text-gray-400" />
                     </div>
                     
                     <button 
                       onClick={startChat} 
-                      disabled={!visitorInfo.name.trim()}
+                      disabled={!(visitorInfo.name || "").trim()}
                       className="w-full p-2.5 sm:p-3 font-bold text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98] text-xs sm:text-sm"
                       style={{ background: colors.green }}
                     >
@@ -1202,7 +1254,13 @@ export default function LiveChat() {
                   >
                     <h4 className="font-bold text-sm sm:text-lg mb-1.5 sm:mb-2">End Conversation?</h4>
                     <p className="text-gray-600 text-xs sm:text-sm mb-3 sm:mb-4">
-                      A complete chat summary will be sent to our team at 254781109052. You can start a new chat anytime.
+                      A complete chat summary will be sent to our team at {COMPANY_WHATSAPP}. 
+                      {deliveryMethod && summarySent && (
+                        <span className="block mt-2 text-green-600 font-medium">
+                          {getDeliveryStatus()}
+                        </span>
+                      )}
+                      You can start a new chat anytime.
                     </p>
                     <div className="flex gap-2 sm:gap-3">
                       <button 
@@ -1216,7 +1274,7 @@ export default function LiveChat() {
                         className="flex-1 p-2 rounded-xl text-white hover:opacity-90 transition-colors text-xs sm:text-sm"
                         style={{ background: colors.terra }}
                       >
-                        End & Send Summary
+                        {summarySent ? 'Close Chat' : 'End & Send Summary'}
                       </button>
                     </div>
                   </motion.div>

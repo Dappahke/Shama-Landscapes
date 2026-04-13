@@ -1,111 +1,93 @@
-// src/app/api/send-whatsapp/route.js
 import { NextResponse } from 'next/server';
+import { sendWhatsAppMessage } from '@/lib/whatsapp/sendWhatsApp';
+import { sendEmail } from '@/lib/email/sendEmail';
+import { sendSMS } from '@/lib/sms/sendSMS';
 
-const COMPANY_WHATSAPP_NUMBER =
-  process.env.COMPANY_WHATSAPP_NUMBER || '254781109052';
-
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const {
-      message,
-      name,
-      phone,
-      email,
-      conversation_id,
-      is_summary = false,
-      attachments = [],
-    } = await request.json();
+    const { to, message } = await req.json();
 
-    if (!message) {
+    if (!to || !message) {
       return NextResponse.json(
-        { error: 'Message required' },
+        { error: 'Missing required fields: to, message' },
         { status: 400 }
       );
     }
 
-    // ----------------------------
-    // FORMAT MESSAGE
-    // ----------------------------
-    let formattedMessage = '';
+    const errors = [];
 
-    if (is_summary) {
-      formattedMessage = message;
-    } else {
-      formattedMessage =
-        `*🚨 New Message - Shama Chat*\n\n` +
-        `*From:* ${name || 'Anonymous'}\n` +
-        `*Phone:* ${phone || 'N/A'}\n` +
-        `*Email:* ${email || 'N/A'}\n` +
-        `*Time:* ${new Date().toLocaleString('en-KE', {
-          timeZone: 'Africa/Nairobi',
-        })}\n\n` +
-        `*Message:*\n${message}\n\n` +
-        (attachments?.length > 0
-          ? `*Attachments:* ${attachments.length} file(s)\n`
-          : '') +
-        `_Reply via WhatsApp_`;
+    // 1. Try WhatsApp first
+    try {
+      await sendWhatsAppMessage({ to, message });
+      console.log('✅ WhatsApp sent');
+      return NextResponse.json({
+        success: true,
+        method: 'whatsapp',
+        message: 'Delivered via WhatsApp'
+      });
+    } catch (err) {
+      errors.push({ method: 'whatsapp', error: err.message });
+      console.error('❌ WhatsApp failed:', err.message);
     }
 
-    // ----------------------------
-    // TWILIO CREDENTIALS
-    // ----------------------------
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_WHATSAPP_FROM; // whatsapp:+14155238886
-
-    if (!accountSid || !authToken || !fromNumber) {
-      throw new Error('Twilio credentials not configured');
+    // 2. Try Email backup
+    if (process.env.COMPANY_EMAIL) {
+      try {
+        await sendEmail({
+          to: process.env.COMPANY_EMAIL,
+          subject: '📋 Chat Summary - Shama LiveChat',
+          text: `WhatsApp failed. Summary:\n\n${message}`,
+        });
+        console.log('✅ Email sent');
+        return NextResponse.json({
+          success: true,
+          method: 'email',
+          whatsapp_error: errors[0]?.error,
+          message: 'Delivered via email (WhatsApp failed)'
+        });
+      } catch (err) {
+        errors.push({ method: 'email', error: err.message });
+        console.error('❌ Email failed:', err.message);
+      }
     }
 
-    // ----------------------------
-    // CLEAN PHONE NUMBER (IMPORTANT FIX)
-    // ----------------------------
-    const cleanNumber = String(COMPANY_WHATSAPP_NUMBER).replace(/[^0-9]/g, '');
-
-    const toNumber = `whatsapp:+${cleanNumber}`;
-
-    // ----------------------------
-    // TWILIO REQUEST
-    // ----------------------------
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-
-    const params = new URLSearchParams({
-      To: toNumber,
-      From: fromNumber,
-      Body: formattedMessage,
-    });
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization:
-          'Basic ' +
-          Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Twilio Error:', data);
-      throw new Error(data.message || 'Twilio API error');
+    // 3. Try SMS final backup
+    if (process.env.COMPANY_SMS_NUMBER) {
+      try {
+        // Truncate for SMS
+        const smsMessage = `Shama Chat: ${message.substring(0, 100)}... View full: ${process.env.NEXT_PUBLIC_APP_URL}/admin`;
+        
+        await sendSMS({
+          to: process.env.COMPANY_SMS_NUMBER,
+          message: smsMessage,
+        });
+        console.log('✅ SMS sent');
+        return NextResponse.json({
+          success: true,
+          method: 'sms',
+          whatsapp_error: errors[0]?.error,
+          email_error: errors[1]?.error,
+          message: 'Delivered via SMS (WhatsApp & email failed)'
+        });
+      } catch (err) {
+        errors.push({ method: 'sms', error: err.message });
+        console.error('❌ SMS failed:', err.message);
+      }
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'WhatsApp sent via Twilio',
-      sid: data.sid,
-      to: toNumber,
-    });
-  } catch (error) {
-    console.error('WhatsApp Error:', error);
-
+    // All failed
     return NextResponse.json(
-      {
-        error: error.message,
+      { 
+        error: 'All delivery methods failed',
+        failures: errors 
       },
+      { status: 500 }
+    );
+
+  } catch (err) {
+    console.error('Route error:', err);
+    return NextResponse.json(
+      { error: err.message || 'Internal server error' },
       { status: 500 }
     );
   }
